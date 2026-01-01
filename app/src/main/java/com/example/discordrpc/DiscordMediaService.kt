@@ -28,6 +28,8 @@ class DiscordMediaService : NotificationListenerService() {
     private val CHANNEL_ID = "DiscordRPCStatus"
     private val NOTIFICATION_ID = 1
     
+    private val serviceScope = CoroutineScope(Dispatchers.Main)
+    
     companion object {
         const val ACTION_STATUS_UPDATE = "com.example.discordrpc.STATUS_UPDATE"
         const val EXTRA_STATUS = "status"
@@ -39,7 +41,7 @@ class DiscordMediaService : NotificationListenerService() {
     
     override fun onCreate() {
         super.onCreate()
-        Log.i("DiscordMediaService", "🚀 Service Created")
+        Log.i("DiscordMediaService", "Service Created")
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, createNotification("Initializing...", "Waiting for media sessions"))
     }
@@ -93,7 +95,7 @@ class DiscordMediaService : NotificationListenerService() {
 
     override fun onListenerConnected() {
         super.onListenerConnected()
-        Log.i("DiscordMediaService", "✅ Notification Listener Connected!")
+        Log.i("DiscordMediaService", "Notification Listener Connected")
         
         sessionManager = getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
         
@@ -110,7 +112,7 @@ class DiscordMediaService : NotificationListenerService() {
                 onActiveSessionsChanged(controllers)
             }
         } catch (e: SecurityException) {
-            Log.e("DiscordMediaService", "❌ Missing notification access permission!", e)
+            Log.e("DiscordMediaService", "Missing notification access permission", e)
         }
     }
 
@@ -118,7 +120,7 @@ class DiscordMediaService : NotificationListenerService() {
     private var callback: MediaController.Callback? = null
 
     private fun onActiveSessionsChanged(controllers: List<MediaController>?) {
-        Log.i("DiscordMediaService", "📢 onActiveSessionsChanged: ${controllers?.size ?: 0} sessions total")
+        Log.i("DiscordMediaService", "Active sessions changed: ${controllers?.size ?: 0} sessions")
         
         val allowedApps = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getStringSet(KEY_ALLOWED_APPS, emptySet()) ?: emptySet()
@@ -126,9 +128,9 @@ class DiscordMediaService : NotificationListenerService() {
         val filteredControllers = controllers?.filter { allowedApps.contains(it.packageName) }
 
         if (filteredControllers.isNullOrEmpty()) {
-            Log.i("DiscordMediaService", "ℹ️ No active media sessions from allowed apps")
+            Log.i("DiscordMediaService", "No active media sessions from allowed apps")
             unregisterCurrent()
-            DiscordGateway.updateRichPresence("Idle", "Waiting for media...", "android", 2)
+            DiscordGateway.updateRichPresence("Idle", "Waiting for media...", "", 2)
             updateNotification("Discord RPC: Idle", "Waiting for media playback")
             return
         }
@@ -140,7 +142,7 @@ class DiscordMediaService : NotificationListenerService() {
         
         // Check if we switched sessions
         if (currentController?.sessionToken != selectedController.sessionToken) {
-            Log.i("DiscordMediaService", "✨ Switched to new session: ${selectedController.packageName}")
+            Log.i("DiscordMediaService", "Switched to session: ${selectedController.packageName}")
             unregisterCurrent()
             currentController = selectedController
             registerCallback(selectedController)
@@ -159,6 +161,7 @@ class DiscordMediaService : NotificationListenerService() {
                 currentController?.unregisterCallback(callback!!)
             } catch (e: Exception) {
                 // Ignore if already dead
+                Log.w("DiscordMediaService", "Failed to unregister callback: ${e.message}")
             }
         }
         currentController = null
@@ -168,19 +171,19 @@ class DiscordMediaService : NotificationListenerService() {
     private fun registerCallback(controller: MediaController) {
         callback = object : MediaController.Callback() {
             override fun onMetadataChanged(metadata: MediaMetadata?) {
-                Log.d("DiscordMediaService", "Callback: Metadata Changed")
+                Log.d("DiscordMediaService", "Metadata changed")
                 updatePresenceFromController(controller)
             }
 
             override fun onPlaybackStateChanged(state: android.media.session.PlaybackState?) {
-                Log.d("DiscordMediaService", "Callback: State Changed to ${state?.state}")
+                Log.d("DiscordMediaService", "Playback state changed: ${state?.state}")
                 updatePresenceFromController(controller)
             }
             
             override fun onSessionDestroyed() {
-                 Log.d("DiscordMediaService", "Callback: Session Destroyed")
+                 Log.d("DiscordMediaService", "Session destroyed")
                  unregisterCurrent()
-                 DiscordGateway.updateRichPresence("Idle", "Waiting for media...", "android", 2)
+                 DiscordGateway.updateRichPresence("Idle", "Waiting for media...", "", 2)
             }
         }
         controller.registerCallback(callback!!)
@@ -196,9 +199,9 @@ class DiscordMediaService : NotificationListenerService() {
         val position = controller.playbackState?.position ?: 0L
         val packageName = controller.packageName
         
-        Log.i("DiscordMediaService", "🎵 Now Playing: $title by $artist ($packageName) [Pos: $position, Dur: $duration]")
+        Log.i("DiscordMediaService", "Updating presence: $title - $artist ($packageName)")
         
-        val prefs = getSharedPreferences("discord_rpc_prefs", MODE_PRIVATE)
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         val type = prefs.getInt("app_type_$packageName", 2) // Default to Listening (2)
         
         // Handle Album Art
@@ -215,7 +218,7 @@ class DiscordMediaService : NotificationListenerService() {
                  if (!uploadingTracks.contains(trackId)) {
                      uploadingTracks.add(trackId)
                      // Launch upload
-                     CoroutineScope(Dispatchers.IO).launch {
+                     serviceScope.launch(Dispatchers.IO) {
                          val url = ImageUploader(this@DiscordMediaService).uploadImage(bitmap)
                          uploadingTracks.remove(trackId) 
                          if (url != null) {
@@ -236,10 +239,10 @@ class DiscordMediaService : NotificationListenerService() {
             val now = System.currentTimeMillis()
             val startTs = now - position
             val endTs = startTs + duration
-            Log.d("DiscordMediaService", "Sending RPC Update with Timestamps: $title - $artist (Type: $type, Key: $imageKey)")
+            Log.d("DiscordMediaService", "Sending presence update with timestamps")
             DiscordGateway.updateRichPresenceWithTimestamps(title, artist, imageKey, startTs, endTs, type)
         } else {
-            Log.d("DiscordMediaService", "Sending Standard RPC Update: $title - $artist (Type: $type, Key: $imageKey)")
+            Log.d("DiscordMediaService", "Sending standard presence update")
             DiscordGateway.updateRichPresence(title, artist, imageKey, type)
         }
         
@@ -253,10 +256,7 @@ class DiscordMediaService : NotificationListenerService() {
     // User provided helper
     private fun getCoverArt(metadata: MediaMetadata?): Bitmap? {
         if (metadata == null) return null
-        return if (metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART) != null) metadata.getBitmap(
-            MediaMetadata.METADATA_KEY_ALBUM_ART
-        )
-        else metadata.getBitmap(MediaMetadata.METADATA_KEY_ART)
+        return metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART) 
+            ?: metadata.getBitmap(MediaMetadata.METADATA_KEY_ART)
     }
 }
-

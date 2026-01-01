@@ -1,3 +1,0 @@
-C:/Users/potato/Documents/github/DiscordRPCAndroid/app/.cxx/Debug/3j3q2ko5/x86/CMakeFiles/discord.dir
-C:/Users/potato/Documents/github/DiscordRPCAndroid/app/.cxx/Debug/3j3q2ko5/x86/CMakeFiles/edit_cache.dir
-C:/Users/potato/Documents/github/DiscordRPCAndroid/app/.cxx/Debug/3j3q2ko5/x86/CMakeFiles/rebuild_cache.dir

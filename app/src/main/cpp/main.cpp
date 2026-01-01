@@ -41,7 +41,7 @@ static std::optional<PendingActivity> g_pendingActivity;
 void applyPendingActivity() {
     if (!g_client || !g_connected || !g_pendingActivity) return;
     
-    LOGI("🔄 Applying pending Rich Presence (Absolute Timestamps)...");
+    LOGI("Applying pending Rich Presence (Absolute Timestamps)...");
     discordpp::Activity activity;
     
     activity.SetType(static_cast<discordpp::ActivityTypes>(g_pendingActivity->type));
@@ -66,13 +66,12 @@ void applyPendingActivity() {
     
     g_client->UpdateRichPresence(activity, [](discordpp::ClientResult result) {
         if (!result.Successful()) {
-            LOGE("❌ Rich Presence update failed: %s", result.Error().c_str());
+            LOGE("Rich Presence update failed: %s", result.Error().c_str());
         } else {
-            LOGI("✅ Rich Presence updated successfully!");
+            LOGI("Rich Presence updated successfully");
         }
     });
 }
-// ... (callbacks stay same)
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_example_discordrpc_DiscordGateway_updateRichPresence(JNIEnv* env, jobject thiz, jstring jdetails, jstring jstate, jstring jimageKey, jint jtype) {
@@ -82,7 +81,7 @@ Java_com_example_discordrpc_DiscordGateway_updateRichPresence(JNIEnv* env, jobje
     
     g_pendingActivity = {details, state, imageKey, 0, 0, (int)jtype, false};
     
-    LOGI("🎮 Pending Rich Presence (Standard): Type=%d, Key=%s", (int)jtype, imageKey);
+    LOGI("Pending Rich Presence (Standard): Type=%d, Key=%s", (int)jtype, imageKey);
     
     applyPendingActivity();
     
@@ -99,7 +98,7 @@ Java_com_example_discordrpc_DiscordGateway_updateRichPresenceWithTimestamps(JNIE
     
     g_pendingActivity = {details, state, imageKey, (long long)jstart, (long long)jend, (int)jtype, true};
     
-    LOGI("🎮 Pending Rich Presence w/ Timestamps: Type=%d, Key=%s", (int)jtype, imageKey);
+    LOGI("Pending Rich Presence w/ Timestamps: Type=%d, Key=%s", (int)jtype, imageKey);
     
     applyPendingActivity();
     
@@ -109,21 +108,21 @@ Java_com_example_discordrpc_DiscordGateway_updateRichPresenceWithTimestamps(JNIE
 }
 
 void runCallbackLoop() {
-    LOGI("🔄 Callback loop started");
+    LOGI("Callback loop started");
     while (g_running) {
         discordpp::RunCallbacks();
         std::this_thread::sleep_for(std::chrono::milliseconds(16));
     }
-    LOGI("🛑 Callback loop stopped");
+    LOGI("Callback loop stopped");
 }
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_example_discordrpc_DiscordGateway_initDiscord(JNIEnv* env, jobject thiz, jlong jclientId) {
     g_applicationId = static_cast<uint64_t>(jclientId);
-    LOGI("🚀 Initializing Discord SDK with Client ID: %lld", (long long)jclientId);
+    LOGI("Initializing Discord SDK with Client ID: %lld", (long long)jclientId);
     
     if (g_running) {
-        LOGI("⚠️ Discord SDK already running, stopping previous instance...");
+        LOGI("Discord SDK already running, stopping previous instance");
         g_running = false;
         g_connected = false;
         if (g_callbackThread.joinable()) {
@@ -138,13 +137,13 @@ Java_com_example_discordrpc_DiscordGateway_initDiscord(JNIEnv* env, jobject thiz
     }, discordpp::LoggingSeverity::Info);
     
     g_client->SetStatusChangedCallback([](discordpp::Client::Status status, discordpp::Client::Error error, int32_t errorDetail) {
-        LOGI("🔄 Status changed: %s", discordpp::Client::StatusToString(status).c_str());
+        LOGI("Status changed: %s", discordpp::Client::StatusToString(status).c_str());
         if (status == discordpp::Client::Status::Ready) {
-            LOGI("✅ Client is ready!");
+            LOGI("Client is ready");
             g_connected = true;
             applyPendingActivity();
         } else if (error != discordpp::Client::Error::None) {
-            LOGE("❌ Connection Error: %s Detail: %d", discordpp::Client::ErrorToString(error).c_str(), errorDetail);
+            LOGE("Connection Error: %s Detail: %d", discordpp::Client::ErrorToString(error).c_str(), errorDetail);
             g_connected = false;
         }
     });
@@ -158,11 +157,11 @@ Java_com_example_discordrpc_DiscordGateway_initDiscord(JNIEnv* env, jobject thiz
 extern "C" JNIEXPORT void JNICALL
 Java_com_example_discordrpc_DiscordGateway_startAuthorization(JNIEnv* env, jobject thiz) {
     if (!g_client || !g_codeVerifier) {
-        LOGE("❌ Client not initialized!");
+        LOGE("Client not initialized");
         return;
     }
     
-    LOGI("🚀 Starting OAuth authorization...");
+    LOGI("Starting OAuth authorization");
     
     discordpp::AuthorizationArgs args{};
     args.SetClientId(g_applicationId);
@@ -171,18 +170,17 @@ Java_com_example_discordrpc_DiscordGateway_startAuthorization(JNIEnv* env, jobje
     args.SetCustomSchemeParam("discordrpc");
     
     g_client->Authorize(args, [](discordpp::ClientResult result, std::string code, std::string redirectUri) {
-        // This callback won't be called since we handle it manually in handleOAuthCallback
-        LOGI("📞 Authorize callback (should not be called)");
+        LOGI("Authorize callback triggered");
     });
 }
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_example_discordrpc_DiscordGateway_connect(JNIEnv* env, jobject thiz) {
     if (!g_client) {
-        LOGE("❌ Client not initialized! Cannot connect.");
+        LOGE("Client not initialized! Cannot connect");
         return;
     }
-    LOGI("🚀 Manually connecting to Discord Gateway...");
+    LOGI("Connecting to Discord Gateway");
     g_client->Connect();
 }
 
@@ -191,57 +189,42 @@ Java_com_example_discordrpc_DiscordGateway_handleOAuthCallback(JNIEnv* env, jobj
     const char* code = env->GetStringUTFChars(jcode, nullptr);
     const char* redirectUri = env->GetStringUTFChars(jredirectUri, nullptr);
     
-    LOGI("📞 handleOAuthCallback called from Java!");
-    LOGI("   Code: %s", code);
-    LOGI("   Redirect URI: %s", redirectUri);
+    LOGI("handleOAuthCallback called");
     
     if (!g_client || !g_codeVerifier) {
-        LOGE("❌ Client not initialized!");
+        LOGE("Client not initialized");
         env->ReleaseStringUTFChars(jcode, code);
         env->ReleaseStringUTFChars(jredirectUri, redirectUri);
         return;
     }
     
-    // Strip query parameters from redirect URI
     std::string redirectUriStr(redirectUri);
     size_t queryPos = redirectUriStr.find('?');
     if (queryPos != std::string::npos) {
         redirectUriStr = redirectUriStr.substr(0, queryPos);
     }
     
-    // Manually trigger the token exchange
-    LOGI("🔄 Calling GetToken manually with URI: %s", redirectUriStr.c_str());
-    
-    // We need a global ref to class to call static method? Or just find class.
-    // Ideally we should cache methodID in JNI_OnLoad, but finding it here works for now.
     jclass gatewayClass = env->FindClass("com/example/discordrpc/DiscordGateway");
     jmethodID onTokenReceivedMethod = env->GetMethodID(gatewayClass, "onTokenReceived", "(Ljava/lang/String;Ljava/lang/String;)V");
 
-    // Need to use GlobalRef for JNI usage inside lambda thread
     JavaVM* jvm;
     env->GetJavaVM(&jvm);
-    jobject globalGateway = env->NewGlobalRef(thiz); // Thiz is the object instance
+    jobject globalGateway = env->NewGlobalRef(thiz);
 
     g_client->GetToken(g_applicationId, std::string(code), g_codeVerifier->Verifier(), redirectUriStr,
         [jvm, globalGateway, onTokenReceivedMethod](discordpp::ClientResult result, std::string accessToken, std::string refreshToken, discordpp::AuthorizationTokenType tokenType, int32_t expiresIn, std::string scope) {
-            LOGI("📞 GetToken callback triggered!");
+            LOGI("GetToken callback triggered");
             if (!result.Successful()) {
-                LOGE("❌ GetToken Error: %s", result.Error().c_str());
+                LOGE("GetToken Error: %s", result.Error().c_str());
                 return;
             }
-            LOGI("🔓 Access token received! Connecting...");
+            LOGI("Access token received!");
             
-            // Call Java to save token
             JNIEnv* env;
             if (jvm->AttachCurrentThread(&env, nullptr) == JNI_OK) {
                  jstring jAccess = env->NewStringUTF(accessToken.c_str());
                  jstring jRefresh = env->NewStringUTF(refreshToken.c_str());
                  
-                 // DiscordGateway is a singleton object, so we call method on the instance we got
-                 // But wait, 'thiz' in Kotlin object is the singleton instance.
-                 jclass gatewayClasses = env->GetObjectClass(globalGateway);
-                 // Re-find method ID just to be safe or reuse? Reuse is fine if class didn't unload.
-                 // Actually easier to just find class again or use the object.
                  env->CallVoidMethod(globalGateway, onTokenReceivedMethod, jAccess, jRefresh);
                  
                  env->DeleteLocalRef(jAccess);
@@ -250,13 +233,12 @@ Java_com_example_discordrpc_DiscordGateway_handleOAuthCallback(JNIEnv* env, jobj
             }
 
             g_client->UpdateToken(discordpp::AuthorizationTokenType::Bearer, accessToken, [](discordpp::ClientResult result) {
-                LOGI("📞 UpdateToken callback triggered!");
                 if (result.Successful()) {
-                    LOGI("🔑 Token updated, calling Connect()");
+                    LOGI("Token updated, connecting...");
                     g_client->Connect();
                     g_connected = true;
                 } else {
-                    LOGE("❌ UpdateToken Error: %s", result.Error().c_str());
+                    LOGE("UpdateToken Error: %s", result.Error().c_str());
                 }
             });
         });
@@ -271,21 +253,18 @@ Java_com_example_discordrpc_DiscordGateway_restoreSession(JNIEnv* env, jobject t
     const char* refreshToken = env->GetStringUTFChars(jRefreshToken, nullptr);
     
     if (!g_client) {
-        LOGE("❌ Client not initialized! Cannot restore session.");
+        LOGE("Client not initialized! Cannot restore session");
          env->ReleaseStringUTFChars(jAccessToken, accessToken);
          env->ReleaseStringUTFChars(jRefreshToken, refreshToken);
         return;
     }
     
-    LOGI("♻️ Restoring session with saved token...");
-    // Update token and THEN connect
+    LOGI("Restoring session with saved token");
     g_client->UpdateToken(discordpp::AuthorizationTokenType::Bearer, std::string(accessToken), [](discordpp::ClientResult result) {
          if (result.Successful()) {
-             LOGI("✅ Token restored. Ready to connect.");
-             // We don't connect here automatically, we wait for the explicit connect() call or called it here?
-             // The user code calls init -> restore -> connect. So we just set state.
+             LOGI("Token restored");
          } else {
-             LOGE("❌ Failed to restore token: %s", result.Error().c_str());
+             LOGE("Failed to restore token: %s", result.Error().c_str());
          }
     });
 
@@ -293,10 +272,9 @@ Java_com_example_discordrpc_DiscordGateway_restoreSession(JNIEnv* env, jobject t
     env->ReleaseStringUTFChars(jRefreshToken, refreshToken);
 }
 
-
 extern "C" JNIEXPORT void JNICALL
 Java_com_example_discordrpc_DiscordGateway_shutdownDiscord(JNIEnv* env, jobject thiz) {
-    LOGI("🛑 Shutting down Discord SDK");
+    LOGI("Shutting down Discord SDK");
     g_running = false;
     g_connected = false;
     if (g_callbackThread.joinable()) {

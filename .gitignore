@@ -1,7 +1,7 @@
 local.properties
-.gradle/
-build/
-.cxx/
+**/.gradle/
+**/build/
+**/.cxx/
 *.txt
 *.html
 .idea/

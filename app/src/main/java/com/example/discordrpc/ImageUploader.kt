@@ -46,7 +46,7 @@ class ImageUploader(private val context: Context) {
                     null
                 } else {
                     val url = response.body?.string()
-                    Log.i("ImageUploader", "Upload success! URL: $url")
+                    Log.i("ImageUploader", "Upload successful: $url")
                     url
                 }
             }

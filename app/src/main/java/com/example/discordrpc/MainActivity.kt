@@ -104,7 +104,7 @@ class MainActivity : AppCompatActivity() {
         
         // Handle Token Persistence
         DiscordGateway.tokenSaver = { access, refresh ->
-            Log.i("MainActivity", "Saving auth tokens...")
+            Log.i("MainActivity", "Saving auth tokens")
             prefs.edit()
                 .putString("auth_access_token", access)
                 .putString("auth_refresh_token", refresh)
@@ -119,9 +119,6 @@ class MainActivity : AppCompatActivity() {
             DiscordGateway.restoreSession(savedAccess, savedRefresh)
         }
         
-        // Wait slightly for restore to apply inside native thread or hope queue works?
-        // Native UpdateToken is async. Connect() might be called too early.
-        // But for now, let's call connect(). Usually the library queues commands.
         DiscordGateway.connect()
         
         loadApps()
