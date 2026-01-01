@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="24dp"
+    android:fitsSystemWindows="true">
+
+    <!-- Header Section -->
+    <TextView
+        android:id="@+id/tvTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Discord RPC"
+        android:textAppearance="@style/TextAppearance.Material3.DisplayMedium"
+        android:textColor="?attr/colorOnSurface"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        android:layout_marginTop="48dp" />
+
+    <TextView
+        android:id="@+id/tvSubtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Native C++ Integration Demo"
+        android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tvTitle"
+        android:layout_marginTop="8dp" />
+
+    <!-- Status Card -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardStatus"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        style="@style/Widget.Material3.CardView.Elevated"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="8dp"
+        app:cardBackgroundColor="?attr/colorSurfaceContainer"
+        android:layout_marginTop="32dp"
+        app:layout_constraintTop_toBottomOf="@id/tvSubtitle"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:src="@android:drawable/ic_menu_info_details"
+                    app:tint="?attr/colorPrimary" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Status"
+                    android:textAppearance="@style/TextAppearance.Material3.TitleLarge"
+                    android:layout_marginStart="16dp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvStatusLog"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Initializing SDK...\nWaiting for Auth..."
+                android:fontFamily="monospace"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                android:layout_marginTop="16dp"
+                android:background="?attr/colorSurfaceVariant"
+                android:padding="12dp"
+                android:lines="5" />
+            
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Actions -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnAuthorize"
+        android:layout_width="0dp"
+        android:layout_height="64dp"
+        android:text="Re-Authorize"
+        style="@style/Widget.Material3.Button"
+        app:icon="@android:drawable/ic_menu_send"
+        app:iconGravity="textStart"
+        android:layout_marginBottom="16dp"
+        app:layout_constraintBottom_toTopOf="@id/btnExit"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnExit"
+        android:layout_width="0dp"
+        android:layout_height="64dp"
+        android:text="Exit App"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_marginBottom="32dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

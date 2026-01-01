@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    style="?attr/materialCardViewElevatedStyle"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="16dp"
+    android:layout_marginVertical="8dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:id="@+id/app_icon"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@android:drawable/sym_def_app_icon" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/app_name"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="App Name"
+                    android:textAppearance="@style/TextAppearance.Material3.TitleMedium" />
+
+                <TextView
+                    android:id="@+id/app_package"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="com.example.app"
+                    android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+                    android:textColor="?attr/colorOutline" />
+            </LinearLayout>
+
+            <com.google.android.material.checkbox.MaterialCheckBox
+                android:id="@+id/app_checkbox"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <com.google.android.material.divider.MaterialDivider
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginVertical="12dp"
+            app:dividerColor="?attr/colorOutlineVariant" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Activity Type"
+            android:textAppearance="@style/TextAppearance.Material3.LabelMedium"
+            android:textColor="?attr/colorOutline"
+            android:layout_marginBottom="8dp"/>
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/type_chip_group"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:singleSelection="true"
+            app:selectionRequired="true">
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip_playing"
+                style="@style/Widget.Material3.Chip.Filter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Playing"
+                app:chipIcon="@android:drawable/ic_media_play"/>
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip_listening"
+                style="@style/Widget.Material3.Chip.Filter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Listening"
+                app:chipIcon="@android:drawable/ic_lock_silent_mode"/>
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip_watching"
+                style="@style/Widget.Material3.Chip.Filter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Watching"
+                app:chipIcon="@android:drawable/ic_menu_view"/>
+
+        </com.google.android.material.chip.ChipGroup>
+
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

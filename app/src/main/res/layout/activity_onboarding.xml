@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/colorSurface">
+
+    <ViewFlipper
+        android:id="@+id/onboarding_flipper"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:inAnimation="@android:anim/fade_in"
+        android:outAnimation="@android:anim/fade_out">
+
+        <!-- Step 1: Permissions (Now First) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="32dp">
+
+            <ImageView
+                android:layout_width="120dp"
+                android:layout_height="120dp"
+                android:src="@android:drawable/ic_dialog_info"
+                app:tint="?attr/colorTertiary" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="32dp"
+                android:text="Give us a Hand"
+                android:textAppearance="@style/TextAppearance.Material3.HeadlineLarge"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:gravity="center"
+                android:text="We need Notification access to detect what music or videos you are playing."
+                android:textAppearance="@style/TextAppearance.Material3.BodyLarge" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_grant_permissions"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="48dp"
+                android:padding="16dp"
+                android:text="Grant Permissions" />
+
+        </LinearLayout>
+
+        <!-- Step 2: Configuration (Client ID + Auth) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="32dp">
+
+            <ImageView
+                android:layout_width="100dp"
+                android:layout_height="100dp"
+                android:src="@android:drawable/ic_lock_power_off"
+                app:tint="?attr/colorPrimary" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="Setup Discord"
+                android:textAppearance="@style/TextAppearance.Material3.HeadlineLarge"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:gravity="center"
+                android:text="Enter your Discord Application ID to start."
+                android:textAppearance="@style/TextAppearance.Material3.BodyMedium" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:hint="Client ID">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/input_client_id"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="number"
+                    android:singleLine="true" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_connect_discord"
+                style="@style/Widget.Material3.Button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:padding="16dp"
+                android:text="Authorize with Discord" />
+
+        </LinearLayout>
+
+        <!-- Step 3: All Set -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="32dp">
+
+            <ImageView
+                android:layout_width="120dp"
+                android:layout_height="120dp"
+                android:src="@android:drawable/checkbox_on_background"
+                app:tint="?attr/colorPrimary" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="32dp"
+                android:text="You're All Set!"
+                android:textAppearance="@style/TextAppearance.Material3.HeadlineLarge"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:gravity="center"
+                android:text="Discord RPC is ready to go. You can now choose which apps to track."
+                android:textAppearance="@style/TextAppearance.Material3.BodyLarge" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_finish_onboarding"
+                style="@style/Widget.Material3.Button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="48dp"
+                android:padding="16dp"
+                android:text="Let's Go!" />
+
+        </LinearLayout>
+    </ViewFlipper>
+
+    <!-- Indicators -->
+    <LinearLayout
+        android:id="@+id/indicator_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="32dp"
+        android:orientation="horizontal"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <View
+            android:id="@+id/dot1"
+            android:layout_width="10dp"
+            android:layout_height="10dp"
+            android:layout_margin="4dp"
+            android:background="@android:drawable/presence_online" />
+        <View
+            android:id="@+id/dot2"
+            android:layout_width="10dp"
+            android:layout_height="10dp"
+            android:layout_margin="4dp"
+            android:alpha="0.3"
+            android:background="@android:drawable/presence_online" />
+        <View
+            android:id="@+id/dot3"
+            android:layout_width="10dp"
+            android:layout_height="10dp"
+            android:layout_margin="4dp"
+            android:alpha="0.3"
+            android:background="@android:drawable/presence_online" />
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

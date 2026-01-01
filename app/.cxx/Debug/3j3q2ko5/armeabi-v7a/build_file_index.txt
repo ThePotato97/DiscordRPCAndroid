@@ -1,0 +1,1 @@
+C:\Users\potato\Documents\github\DiscordRPCAndroid\app\src\main\cpp\CMakeLists.txt
