@@ -38,12 +38,10 @@ class MainActivity : ComponentActivity() {
     private lateinit var prefs: android.content.SharedPreferences
     
     // Data
-    // Data
-
     private val PREFS_NAME = "discord_rpc_prefs"
     private val KEY_ALLOWED_APPS = "allowed_apps"
 
-    // Legacy RecyclerView classes removed
+
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -203,12 +201,9 @@ class MainActivity : ComponentActivity() {
                 DisposableEffect(Unit) {
                     DiscordGateway.startUserCallback = { name, disc, id, avatar ->
                         Log.i("MainActivity", "✅ Received user update in UI: $name (Thread: ${Thread.currentThread().name})")
-                        // Force update on main thread
                         runOnUiThread {
                             val newUser = com.example.discordrpc.models.DiscordUser(name, disc, id, avatar)
-                            Log.i("MainActivity", "Setting currentUser from null=${currentUser == null} to $name")
                             currentUser = newUser
-                            Log.i("MainActivity", "User state updated: ${currentUser?.username}, isNull=${currentUser == null}")
                         }
                     }
                     

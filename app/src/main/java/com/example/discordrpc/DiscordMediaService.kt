@@ -59,7 +59,6 @@ class DiscordMediaService : NotificationListenerService() {
     
     override fun onCreate() {
         super.onCreate()
-        Log.i("DiscordMediaService", "Service Created")
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, createNotification("Initializing...", "Waiting for media sessions"))
         
@@ -82,7 +81,6 @@ class DiscordMediaService : NotificationListenerService() {
     private val refreshReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == ACTION_REFRESH_SESSIONS) {
-                Log.i("DiscordMediaService", "Refreshing sessions request received via Receiver")
                 val componentName = ComponentName(context, DiscordMediaService::class.java)
                 val controllers = sessionManager?.getActiveSessions(componentName)
                 if (controllers != null) {
@@ -211,7 +209,6 @@ class DiscordMediaService : NotificationListenerService() {
     private var callback: MediaController.Callback? = null
 
     private fun onActiveSessionsChanged(controllers: List<MediaController>?) {
-        Log.i("DiscordMediaService", "Active sessions changed: ${controllers?.size ?: 0} sessions")
         
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         if (!prefs.getBoolean(KEY_RPC_ENABLED, true)) {
@@ -229,7 +226,6 @@ class DiscordMediaService : NotificationListenerService() {
         val filteredControllers = controllers?.filter { allowedApps.contains(it.packageName) }
 
         if (filteredControllers.isNullOrEmpty()) {
-            Log.i("DiscordMediaService", "No active media sessions from allowed apps")
             broadcastAppsList(controllers) // Broadcast all found controllers so UI can show them
             unregisterCurrent()
             DiscordGateway.updateRichPresence("Discord RPC", "Idle", "Waiting for media...", "", ActivityType.LISTENING.value, StatusDisplayTypes.STATE.value)
@@ -402,7 +398,6 @@ class DiscordMediaService : NotificationListenerService() {
     private val urlCache = mutableMapOf<String, String>()
     private val uploadingTracks = mutableSetOf<String>()
 
-    // User provided helper
     private fun getCoverArt(metadata: MediaMetadata?): Bitmap? {
         if (metadata == null) return null
         return metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART) 

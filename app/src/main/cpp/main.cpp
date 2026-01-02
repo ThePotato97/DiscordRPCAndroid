@@ -15,7 +15,6 @@
 #define DISCORDPP_IMPLEMENTATION
 #include "discordpp.h"
 
-// Log tag
 #define LOG_TAG "DiscordRPC"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
@@ -37,7 +36,7 @@ struct PendingActivity {
     long long start = 0;
     long long end = 0;
     int type = 2; // Default to Listening
-    int statusDisplayType = 0; // 0=State, 1=Details
+    int statusDisplayType = 0;
     bool hasTimestamps = false;
 };
 static std::optional<PendingActivity> g_pendingActivity;
@@ -46,16 +45,16 @@ void applyPendingActivity() {
     std::lock_guard<std::mutex> lock(g_sdkMutex);
     if (!g_client || !g_connected || !g_pendingActivity) return;
     
-    LOGI("Applying pending Rich Presence (Absolute Timestamps)...");
+    LOGI("Applying pending Rich Presence...");
     discordpp::Activity activity;
     
     activity.SetType(static_cast<discordpp::ActivityTypes>(g_pendingActivity->type));
     activity.SetStatusDisplayType(static_cast<discordpp::StatusDisplayTypes>(g_pendingActivity->statusDisplayType));
 
-    activity.SetDetails(g_pendingActivity->details.c_str()); // Details = Top Line
-    activity.SetState(g_pendingActivity->state.c_str());     // State = Bottom Line
-    activity.SetName(g_pendingActivity->appName.c_str());    // App Name
-    
+    activity.SetDetails(g_pendingActivity->details.c_str());
+    activity.SetState(g_pendingActivity->state.c_str());
+    activity.SetName(g_pendingActivity->appName.c_str());
+     
     if (g_pendingActivity->hasTimestamps) {
         discordpp::ActivityTimestamps timestamps;
         if (g_pendingActivity->start > 0) timestamps.SetStart(g_pendingActivity->start / 1000);
@@ -88,7 +87,7 @@ Java_com_example_discordrpc_DiscordGateway_updateRichPresence(JNIEnv* env, jobje
     
     g_pendingActivity = {details, state, imageKey, appName, 0, 0, (int)jtype, (int)jStatusDisplayType, false};
     
-    LOGI("Pending Rich Presence (Standard): App=%s, Type=%d, Display=%d", appName, (int)jtype, (int)jStatusDisplayType);
+    LOGI("Pending Rich Presence: App=%s, Type=%d, Display=%d", appName, (int)jtype, (int)jStatusDisplayType);
     
     applyPendingActivity();
     
@@ -107,7 +106,7 @@ Java_com_example_discordrpc_DiscordGateway_updateRichPresenceWithTimestamps(JNIE
     
     g_pendingActivity = {details, state, imageKey, appName, (long long)jstart, (long long)jend, (int)jtype, (int)jStatusDisplayType, true};
     
-    LOGI("Pending Rich Presence w/ Timestamps: App=%s, Type=%d, Display=%d", appName, (int)jtype, (int)jStatusDisplayType);
+    LOGI("Pending Rich Presence w/ Timestamps: App=%s", appName);
     
     applyPendingActivity();
     
@@ -139,14 +138,10 @@ Java_com_example_discordrpc_DiscordGateway_initDiscord(JNIEnv* env, jobject thiz
     }
     g_gateway = env->NewGlobalRef(thiz);
     
-    // Check if already running and connected
     if (g_running && g_connected && g_client) {
-        LOGI("initDiscord: SDK already connected. Skipping re-initialization.");
-        // PUSH User Update to the (potentially new) UI immediately
         auto userOpt = g_client->GetCurrentUserV2();
         if (userOpt.has_value()) {
             auto user = *userOpt;
-            LOGI("initDiscord: Pushing existing user to UI: %s", user.Username().c_str());
             
             jclass gatewayClass = env->GetObjectClass(g_gateway);
             jmethodID onUserUpdate = env->GetMethodID(gatewayClass, "onCurrentUserUpdate", "(Ljava/lang/String;Ljava/lang/String;JLjava/lang/String;)V");
@@ -176,7 +171,6 @@ Java_com_example_discordrpc_DiscordGateway_initDiscord(JNIEnv* env, jobject thiz
     LOGI("Initializing Discord SDK with Client ID: %lld", (long long)jclientId);
     
     if (g_running) {
-        LOGI("Discord SDK running but not connected? Stopping previous instance.");
         g_running = false;
         g_connected = false;
         if (g_callbackThread.joinable()) {
