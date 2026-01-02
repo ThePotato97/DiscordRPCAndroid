@@ -1,4 +1,4 @@
-package com.example.discordrpc.ui.screens
+package com.thepotato.discordrpc.ui.screens
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.background

@@ -1,4 +1,4 @@
-package com.example.discordrpc.models
+package com.thepotato.discordrpc.models
 
 enum class StatusDisplayTypes(val value: Int) {
     NAME(0),

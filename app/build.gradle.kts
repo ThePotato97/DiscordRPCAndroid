@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.discordrpc"
+    namespace = "com.thepotato.discordrpc"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.discordrpc"
+        applicationId = "com.thepotato.discordrpc"
         minSdk = 24
         targetSdk = 36
         versionCode = 1

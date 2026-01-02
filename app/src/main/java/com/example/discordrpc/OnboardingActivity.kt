@@ -1,4 +1,4 @@
-package com.example.discordrpc
+package com.thepotato.discordrpc
 
 import android.content.Intent
 import android.net.Uri
@@ -9,8 +9,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.*
 import com.discord.socialsdk.DiscordSocialSdkInit
-import com.example.discordrpc.ui.screens.OnboardingScreen
-import com.example.discordrpc.ui.theme.DiscordRPCTheme
+import com.thepotato.discordrpc.ui.screens.OnboardingScreen
+import com.thepotato.discordrpc.ui.theme.DiscordRPCTheme
 
 class OnboardingActivity : ComponentActivity() {
 

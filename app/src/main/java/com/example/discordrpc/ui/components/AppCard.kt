@@ -1,4 +1,4 @@
-package com.example.discordrpc.ui.components
+package com.thepotato.discordrpc.ui.components
 
 import android.graphics.drawable.Drawable
 import androidx.compose.animation.*

@@ -1,4 +1,4 @@
-package com.example.discordrpc
+package com.thepotato.discordrpc
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -15,8 +15,8 @@ import android.service.notification.NotificationListenerService
 import android.util.Log
 import android.graphics.Bitmap
 import androidx.core.app.NotificationCompat
-import com.example.discordrpc.models.StatusDisplayTypes
-import com.example.discordrpc.models.ActivityType
+import com.thepotato.discordrpc.models.StatusDisplayTypes
+import com.thepotato.discordrpc.models.ActivityType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -34,9 +34,9 @@ class DiscordMediaService : NotificationListenerService() {
     private val serviceScope = CoroutineScope(Dispatchers.Main)
     
     companion object {
-        const val ACTION_STATUS_UPDATE = "com.example.discordrpc.STATUS_UPDATE"
-        const val ACTION_REFRESH_SESSIONS = "com.example.discordrpc.REFRESH_SESSIONS"
-        const val ACTION_STOP_SERVICE = "com.example.discordrpc.STOP_SERVICE"
+        const val ACTION_STATUS_UPDATE = "com.thepotato.discordrpc.STATUS_UPDATE"
+        const val ACTION_REFRESH_SESSIONS = "com.thepotato.discordrpc.REFRESH_SESSIONS"
+        const val ACTION_STOP_SERVICE = "com.thepotato.discordrpc.STOP_SERVICE"
         const val KEY_RPC_ENABLED = "rpc_enabled"
         const val EXTRA_STATUS = "status"
         const val EXTRA_DETAILS = "details"
@@ -46,7 +46,7 @@ class DiscordMediaService : NotificationListenerService() {
         const val EXTRA_STATE = "state"
         const val EXTRA_APP_NAME = "app_name"
         const val EXTRA_ACTIVITY_TYPE = "activity_type"
-        const val ACTION_APPS_UPDATE = "com.example.discordrpc.APPS_UPDATE"
+        const val ACTION_APPS_UPDATE = "com.thepotato.discordrpc.APPS_UPDATE"
         const val EXTRA_APPS_LIST = "apps_list"
         
         var currentStatus: String? = null
@@ -311,7 +311,7 @@ class DiscordMediaService : NotificationListenerService() {
         val packageName = controller.packageName
         
         // Delegate parsing to modular system
-        val parser = com.example.discordrpc.parsing.MetadataParserFactory.getParser(packageName)
+        val parser = com.thepotato.discordrpc.parsing.MetadataParserFactory.getParser(packageName)
         val parsed = parser.parse(metadata)
         
         val details = parsed.details

@@ -1,4 +1,4 @@
-package com.example.discordrpc
+package com.thepotato.discordrpc
 
 import android.util.Log
 
@@ -17,7 +17,7 @@ object DiscordGateway {
 
     var tokenSaver: ((String, String) -> Unit)? = null
     var startUserCallback: ((String, String, Long, String?) -> Unit)? = null
-    var currentUser: com.example.discordrpc.models.DiscordUser? = null
+    var currentUser: com.thepotato.discordrpc.models.DiscordUser? = null
 
     // Called from C++
     fun onTokenReceived(accessToken: String, refreshToken: String) {
@@ -27,7 +27,7 @@ object DiscordGateway {
 
     fun onCurrentUserUpdate(username: String, discriminator: String, currentUserId: Long, avatarHash: String) {
         Log.i("DiscordGateway", "User Update: $username#$discriminator ($currentUserId)")
-        currentUser = com.example.discordrpc.models.DiscordUser(username, discriminator, currentUserId, avatarHash)
+        currentUser = com.thepotato.discordrpc.models.DiscordUser(username, discriminator, currentUserId, avatarHash)
         startUserCallback?.invoke(username, discriminator, currentUserId, avatarHash)
     }
 

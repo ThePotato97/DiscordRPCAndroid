@@ -1,4 +1,4 @@
-package com.example.discordrpc.ui.components
+package com.thepotato.discordrpc.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -19,8 +19,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.example.discordrpc.models.DiscordUser
-import com.example.discordrpc.models.ActivityType
+import com.thepotato.discordrpc.models.DiscordUser
+import com.thepotato.discordrpc.models.ActivityType
 import kotlinx.coroutines.delay
 import java.util.concurrent.TimeUnit
 

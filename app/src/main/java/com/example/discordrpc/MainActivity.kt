@@ -1,4 +1,4 @@
-package com.example.discordrpc
+package com.thepotato.discordrpc
 
 import android.content.Context
 import android.content.Intent
@@ -23,10 +23,10 @@ import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.discord.socialsdk.DiscordSocialSdkInit
-import com.example.discordrpc.ui.screens.AppItem
-import com.example.discordrpc.models.ActivityType
-import com.example.discordrpc.ui.screens.MainScreen
-import com.example.discordrpc.ui.theme.DiscordRPCTheme
+import com.thepotato.discordrpc.ui.screens.AppItem
+import com.thepotato.discordrpc.models.ActivityType
+import com.thepotato.discordrpc.ui.screens.MainScreen
+import com.thepotato.discordrpc.ui.theme.DiscordRPCTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -81,7 +81,7 @@ class MainActivity : ComponentActivity() {
         // Set Compose content
         setContent {
             DiscordRPCTheme {
-                val apps = remember { mutableStateListOf<com.example.discordrpc.ui.screens.AppItem>() }
+                val apps = remember { mutableStateListOf<com.thepotato.discordrpc.ui.screens.AppItem>() }
                 var isLoading by remember { mutableStateOf(true) }
                 var statusText by remember { mutableStateOf(DiscordMediaService.currentStatus ?: "Connected to Discord") }
                 var detailsText by remember { mutableStateOf(DiscordMediaService.currentDetails ?: "Waiting for service...") }
@@ -165,11 +165,11 @@ class MainActivity : ComponentActivity() {
                             }
 
                             // 2. Stream loads
-                            val batch = mutableListOf<com.example.discordrpc.ui.screens.AppItem>()
+                            val batch = mutableListOf<com.thepotato.discordrpc.ui.screens.AppItem>()
                             
                             sortedPackages.forEachIndexed { index, (appInfo, label) ->
                                 try {
-                                    val item = com.example.discordrpc.ui.screens.AppItem(
+                                    val item = com.thepotato.discordrpc.ui.screens.AppItem(
                                         name = label,
                                         packageName = appInfo.packageName,
                                         icon = pm.getApplicationIcon(appInfo),
@@ -202,7 +202,7 @@ class MainActivity : ComponentActivity() {
                     DiscordGateway.startUserCallback = { name, disc, id, avatar ->
                         Log.i("MainActivity", "✅ Received user update in UI: $name (Thread: ${Thread.currentThread().name})")
                         runOnUiThread {
-                            val newUser = com.example.discordrpc.models.DiscordUser(name, disc, id, avatar)
+                            val newUser = com.thepotato.discordrpc.models.DiscordUser(name, disc, id, avatar)
                             currentUser = newUser
                         }
                     }

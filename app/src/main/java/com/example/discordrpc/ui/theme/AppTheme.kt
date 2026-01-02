@@ -1,4 +1,4 @@
-package com.example.discordrpc.ui.theme
+package com.thepotato.discordrpc.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme

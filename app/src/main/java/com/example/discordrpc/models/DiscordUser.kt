@@ -1,4 +1,4 @@
-package com.example.discordrpc.models
+package com.thepotato.discordrpc.models
 
 data class DiscordUser(
     val username: String,

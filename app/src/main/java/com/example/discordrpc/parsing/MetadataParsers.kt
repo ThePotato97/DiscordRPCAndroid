@@ -1,8 +1,8 @@
-package com.example.discordrpc.parsing
+package com.thepotato.discordrpc.parsing
 
 import android.media.MediaMetadata
 
-import com.example.discordrpc.models.StatusDisplayTypes
+import com.thepotato.discordrpc.models.StatusDisplayTypes
 
 data class ParsedMetadata(
     val details: String, // Top Line

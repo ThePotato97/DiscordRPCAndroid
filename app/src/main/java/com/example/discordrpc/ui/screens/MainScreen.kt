@@ -1,4 +1,4 @@
-package com.example.discordrpc.ui.screens
+package com.thepotato.discordrpc.ui.screens
 
 import com.frosch2010.fuzzywuzzy_kotlin.Ratio
 import com.frosch2010.fuzzywuzzy_kotlin.diffutils.DiffUtils
@@ -35,8 +35,8 @@ import coil.request.ImageRequest
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.background
 import androidx.compose.ui.draw.clip
-import com.example.discordrpc.ui.components.AppCard
-import com.example.discordrpc.ui.components.StatusCard
+import com.thepotato.discordrpc.ui.components.AppCard
+import com.thepotato.discordrpc.ui.components.StatusCard
 import com.frosch2010.fuzzywuzzy_kotlin.FuzzySearch
 
 data class AppItem(
@@ -58,7 +58,7 @@ fun MainScreen(
     image: String? = null,
     start: Long = 0,
     end: Long = 0,
-    user: com.example.discordrpc.models.DiscordUser? = null,
+    user: com.thepotato.discordrpc.models.DiscordUser? = null,
     isRpcEnabled: Boolean = true,
     apps: List<AppItem>,
     isLoading: Boolean = false,
