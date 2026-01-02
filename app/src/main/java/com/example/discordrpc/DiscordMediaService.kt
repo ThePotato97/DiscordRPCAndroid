@@ -16,6 +16,7 @@ import android.util.Log
 import android.graphics.Bitmap
 import androidx.core.app.NotificationCompat
 import com.example.discordrpc.models.StatusDisplayTypes
+import com.example.discordrpc.models.ActivityType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -39,11 +40,17 @@ class DiscordMediaService : NotificationListenerService() {
         const val EXTRA_IMAGE = "image"
         const val EXTRA_START_TIME = "start_time"
         const val EXTRA_END_TIME = "end_time"
+        const val EXTRA_STATE = "state"
+        const val EXTRA_APP_NAME = "app_name"
+        const val EXTRA_ACTIVITY_TYPE = "activity_type"
         const val ACTION_APPS_UPDATE = "com.example.discordrpc.APPS_UPDATE"
         const val EXTRA_APPS_LIST = "apps_list"
         
         var currentStatus: String? = null
         var currentDetails: String? = null
+        var currentState: String? = null
+        var currentAppName: String? = null
+        var currentActivityType: Int = ActivityType.LISTENING.value
         var currentImage: String? = null
     }
     
@@ -102,13 +109,25 @@ class DiscordMediaService : NotificationListenerService() {
             .build()
     }
 
-    private fun updateNotification(title: String, text: String, image: String? = null, start: Long = 0, end: Long = 0) {
+    private fun updateNotification(
+        title: String, 
+        text: String, 
+        image: String? = null, 
+        start: Long = 0, 
+        end: Long = 0,
+        state: String? = null,
+        appName: String? = null,
+        activityType: Int = 2
+    ) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(NOTIFICATION_ID, createNotification(title, text))
         
         // Update Static Cache
         currentStatus = title.replace("Discord RPC: ", "")
         currentDetails = text
+        currentState = state
+        currentAppName = appName
+        currentActivityType = activityType
         currentImage = image
         
         // Also broadcast to MainActivity
@@ -116,6 +135,9 @@ class DiscordMediaService : NotificationListenerService() {
             setPackage(packageName)
             putExtra(EXTRA_STATUS, currentStatus)
             putExtra(EXTRA_DETAILS, currentDetails)
+            putExtra(EXTRA_STATE, currentState)
+            putExtra(EXTRA_APP_NAME, currentAppName)
+            putExtra(EXTRA_ACTIVITY_TYPE, currentActivityType)
             putExtra(EXTRA_IMAGE, currentImage)
             putExtra(EXTRA_START_TIME, start)
             putExtra(EXTRA_END_TIME, end)
@@ -163,8 +185,8 @@ class DiscordMediaService : NotificationListenerService() {
             Log.i("DiscordMediaService", "No active media sessions from allowed apps")
             broadcastAppsList(controllers) // Broadcast all found controllers so UI can show them
             unregisterCurrent()
-            DiscordGateway.updateRichPresence("Discord RPC", "Idle", "Waiting for media...", "", 2, StatusDisplayTypes.STATE.value)
-            updateNotification("Discord RPC: Idle", "Waiting for media playback", null, 0, 0)
+            DiscordGateway.updateRichPresence("Discord RPC", "Idle", "Waiting for media...", "", ActivityType.LISTENING.value, StatusDisplayTypes.STATE.value)
+            updateNotification("Discord RPC: Idle", "Waiting for media playback", null, 0, 0, "Waiting for media playback", "Discord RPC", ActivityType.LISTENING.value)
             return
         }
 
@@ -219,7 +241,7 @@ class DiscordMediaService : NotificationListenerService() {
             override fun onSessionDestroyed() {
                  Log.d("DiscordMediaService", "Session destroyed")
                  unregisterCurrent()
-                 DiscordGateway.updateRichPresence("Discord RPC", "Idle", "Waiting for media...", "", 2, StatusDisplayTypes.STATE.value)
+                 DiscordGateway.updateRichPresence("Discord RPC", "Idle", "Waiting for media...", "", ActivityType.LISTENING.value, StatusDisplayTypes.STATE.value)
             }
         }
         controller.registerCallback(callback!!)
@@ -244,7 +266,7 @@ class DiscordMediaService : NotificationListenerService() {
         
         // Helper to get type
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        val type = prefs.getInt("app_type_$packageName", 2) // Default to Listening (2)
+        val type = prefs.getInt("app_type_$packageName", ActivityType.LISTENING.value)
         
         // Handle Album Art
         var imageKey = "" // Default to no image
@@ -302,7 +324,7 @@ class DiscordMediaService : NotificationListenerService() {
         val s = if (isPlaying && duration > 0) (System.currentTimeMillis() - (controller.playbackState?.position ?: 0)) else 0L
         val e = if (isPlaying && duration > 0) s + duration else 0L
         
-        updateNotification("Discord RPC: $statusText", "$appName: $details", imageKey, s, e)
+        updateNotification("Discord RPC: $statusText", details, imageKey, s, e, state, appName, type)
     }
 
     private fun broadcastAppsList(controllers: List<MediaController>?) {

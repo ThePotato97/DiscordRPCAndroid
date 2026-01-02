@@ -51,6 +51,9 @@ data class AppItem(
 fun MainScreen(
     status: String,
     details: String,
+    state: String? = null,
+    appName: String? = null,
+    activityType: Int = 2,
     image: String? = null,
     start: Long = 0,
     end: Long = 0,
@@ -215,7 +218,14 @@ fun MainScreen(
             ) {
                 StatusCard(
                     status = status,
-                    details = details
+                    details = details,
+                    state = state,
+                    appName = appName,
+                    activityType = activityType,
+                    image = image,
+                    start = start,
+                    end = end,
+                    user = user
                 )
 
                 // Gap for the SearchBar integrated position

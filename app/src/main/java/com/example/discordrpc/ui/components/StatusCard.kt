@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.discordrpc.models.DiscordUser
+import com.example.discordrpc.models.ActivityType
 import kotlinx.coroutines.delay
 import java.util.concurrent.TimeUnit
 
@@ -25,6 +26,9 @@ import java.util.concurrent.TimeUnit
 fun StatusCard(
     status: String,
     details: String,
+    state: String? = null,
+    appName: String? = null,
+    activityType: Int = ActivityType.LISTENING.value,
     image: String? = null,
     start: Long = 0,
     end: Long = 0,
@@ -38,21 +42,30 @@ fun StatusCard(
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFF2B2D31) // Discord Dark Theme Color
         ),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp)
+                .padding(16.dp)
         ) {
-            // Rich Presence Preview
+            // Activity Header
+            val type = ActivityType.fromInt(activityType)
+            val headerText = when (type) {
+                ActivityType.PLAYING -> "PLAYING"
+                ActivityType.STREAMING -> "STREAMING"
+                ActivityType.LISTENING -> "LISTENING"
+                ActivityType.WATCHING -> "WATCHING"
+                else -> "PLAYING"
+            }
+            
             Text(
-                text = "PLAYING A GAME",
+                text = headerText,
                 color = Color(0xFFB5BAC1),
                 style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 0.5.sp
             )
             
             Spacer(modifier = Modifier.height(12.dp))
@@ -71,65 +84,53 @@ fun StatusCard(
                         contentDescription = "Presence Image",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
-                            .size(64.dp)
+                            .size(72.dp)
                             .clip(RoundedCornerShape(8.dp))
                             .background(Color(0xFF1E1F22))
                     )
                 } else {
                      Box(
                         modifier = Modifier
-                            .size(64.dp)
+                            .size(72.dp)
                             .clip(RoundedCornerShape(8.dp))
                             .background(Color(0xFF5865F2)), // Blurple
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("RP", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("RP", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
                     }
                 }
                 
                 Spacer(modifier = Modifier.width(16.dp))
                 
                 Column {
-                    // App Name (Header)
-                    val appName = if (status.startsWith("Playing")) details.split(":").firstOrNull() ?: "App" else "Android App"
-                    // Extract AppName from Details if formatted as "AppName: Details"
-                    // Wait, My Service sends "Discord RPC: Playing" as Title(Status) and "AppName: Details" as Text(Details).
-                    // status = "Playing" (from Activity)
-                    // details = "AppName: Details" (from Notification Text)
-                    // This data flow is a bit messy. Let's parse it best effort.
-                    
+                    // Line 1: App Name / Title (Bold)
                     Text(
-                        text = "Discord RPC", // Activity Name override
+                        text = appName ?: "Discord RPC",
                         color = Color.White,
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    
-                    // Details (Top Line)
-                    // The 'details' param passed in contains "AppName: Title".
-                    // I should probably pass raw lines if I want perfect preview.
-                    // But for now, let's just show what we have.
-                    Text(
-                        text = details,
-                        color = Color(0xFFDBDEE1),
-                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
                         maxLines = 1
                     )
                     
-                    // State (Bottom Line)
-                    // We aren't passing state specifically to MainScreen (only Details/Status).
-                    // Wait, I updated MainScreen to take `details` (notification text).
-                    // In `DiscordMediaService`, notification text is "AppName: Details".
-                    // And I broadcast `currentDetails` which is "AppName: Details".
-                    // I need to separate them if I want a true preview.
-                    // But for now, I'll render what I have.
+                    // Line 2: Details
+                    if (!details.isNullOrEmpty()) {
+                        Text(
+                            text = details,
+                            color = Color(0xFFDBDEE1),
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1
+                        )
+                    }
                     
-                    Text(
-                        text = status, 
-                        color = Color(0xFFB5BAC1),
-                        style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 1
-                    )
+                    // Line 3: State
+                    if (!state.isNullOrEmpty()) {
+                        Text(
+                            text = state, 
+                            color = Color(0xFFDBDEE1),
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1
+                        )
+                    }
                     
                     // Timer
                     if (start > 0 || end > 0) {

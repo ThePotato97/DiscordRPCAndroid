@@ -24,6 +24,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.discord.socialsdk.DiscordSocialSdkInit
 import com.example.discordrpc.ui.screens.AppItem
+import com.example.discordrpc.models.ActivityType
 import com.example.discordrpc.ui.screens.MainScreen
 import com.example.discordrpc.ui.theme.DiscordRPCTheme
 import kotlinx.coroutines.Dispatchers
@@ -86,9 +87,12 @@ class MainActivity : ComponentActivity() {
                 var isLoading by remember { mutableStateOf(true) }
                 var statusText by remember { mutableStateOf(DiscordMediaService.currentStatus ?: "Connected to Discord") }
                 var detailsText by remember { mutableStateOf(DiscordMediaService.currentDetails ?: "Waiting for service...") }
+                var stateText by remember { mutableStateOf(DiscordMediaService.currentState ?: "") }
+                var appNameText by remember { mutableStateOf(DiscordMediaService.currentAppName ?: "Discord RPC") }
+                var activityTypeText by remember { mutableIntStateOf(ActivityType.LISTENING.value) }
                 var imageKey by remember { mutableStateOf(DiscordMediaService.currentImage) }
                 var startTime by remember { mutableStateOf(0L) }
-                var endTime by remember { mutableStateOf(0L) }
+                var endTime by remember { mutableIntStateOf(0).let { mutableStateOf(0L) } }
                 
                 // User State
                 var currentUser by remember { mutableStateOf(DiscordGateway.currentUser) }
@@ -219,6 +223,9 @@ class MainActivity : ComponentActivity() {
                             if (intent.action == DiscordMediaService.ACTION_STATUS_UPDATE) {
                                 statusText = intent.getStringExtra(DiscordMediaService.EXTRA_STATUS) ?: statusText
                                 detailsText = intent.getStringExtra(DiscordMediaService.EXTRA_DETAILS) ?: detailsText
+                                stateText = intent.getStringExtra(DiscordMediaService.EXTRA_STATE) ?: ""
+                                appNameText = intent.getStringExtra(DiscordMediaService.EXTRA_APP_NAME) ?: "Discord RPC"
+                                activityTypeText = intent.getIntExtra(DiscordMediaService.EXTRA_ACTIVITY_TYPE, ActivityType.LISTENING.value)
                                 imageKey = intent.getStringExtra(DiscordMediaService.EXTRA_IMAGE)
                                 startTime = intent.getLongExtra(DiscordMediaService.EXTRA_START_TIME, 0L)
                                 endTime = intent.getLongExtra(DiscordMediaService.EXTRA_END_TIME, 0L)
@@ -240,6 +247,9 @@ class MainActivity : ComponentActivity() {
                 MainScreen(
                     status = statusText,
                     details = detailsText,
+                    state = stateText,
+                    appName = appNameText,
+                    activityType = activityTypeText,
                     image = imageKey,
                     start = startTime,
                     end = endTime,
