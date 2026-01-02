@@ -195,6 +195,8 @@ Java_com_example_discordrpc_DiscordGateway_initDiscord(JNIEnv* env, jobject thiz
         if (status == discordpp::Client::Status::Ready) {
             LOGI("Client is ready");
             g_connected = true;
+            // Apply any pending activity that was set before connection
+            applyPendingActivity();
             // Fetch User Info
             auto userOpt = g_client->GetCurrentUserV2();
             if (userOpt.has_value() && g_jvm && g_gateway) {

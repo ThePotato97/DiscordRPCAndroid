@@ -4,6 +4,7 @@ description: Commits all current changes to git to save progress.
 
 1. Stage all changes
    ```bash
+   ssh-add -l
    git add .
    ```
 

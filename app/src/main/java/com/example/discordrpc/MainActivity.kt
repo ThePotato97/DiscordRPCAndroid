@@ -255,6 +255,20 @@ class MainActivity : ComponentActivity() {
                         Log.i("MainActivity", "Global RPC Toggled: $enabled")
                         isRpcEnabled = enabled
                         prefs.edit().putBoolean(DiscordMediaService.KEY_RPC_ENABLED, enabled).apply()
+                        
+                        if (enabled) {
+                            // Re-initialize Discord SDK since it was shut down
+                            val clientId = prefs.getString("global_client_id", "1435558259892293662")?.toLongOrNull() ?: 1435558259892293662L
+                            DiscordGateway.initDiscord(clientId)
+                            
+                            val savedAccess = prefs.getString("auth_access_token", null)
+                            val savedRefresh = prefs.getString("auth_refresh_token", null)
+                            if (savedAccess != null && savedRefresh != null) {
+                                DiscordGateway.restoreSession(savedAccess, savedRefresh)
+                            }
+                            DiscordGateway.connect()
+                        }
+
                         // Notify service to refresh (it reads prefs on next update)
                         sendBroadcast(Intent(DiscordMediaService.ACTION_REFRESH_SESSIONS))
                     },

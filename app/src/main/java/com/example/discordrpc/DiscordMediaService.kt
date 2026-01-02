@@ -21,6 +21,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.cancel
 
 class DiscordMediaService : NotificationListenerService() {
 
@@ -62,24 +63,37 @@ class DiscordMediaService : NotificationListenerService() {
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, createNotification("Initializing...", "Waiting for media sessions"))
         
-        // Register refresh receiver
+        // Register receiver for refresh
         val filter = android.content.IntentFilter(ACTION_REFRESH_SESSIONS)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(refreshReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            registerReceiver(refreshReceiver, filter, RECEIVER_EXPORTED)
         } else {
             registerReceiver(refreshReceiver, filter)
         }
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterReceiver(refreshReceiver)
+        serviceScope.cancel()
+        DiscordGateway.shutdownDiscord()
+    }
+
     private val refreshReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == ACTION_REFRESH_SESSIONS) {
-                Log.i("DiscordMediaService", "Refresh requested via broadcast")
-                val componentName = ComponentName(this@DiscordMediaService, DiscordMediaService::class.java)
-                onActiveSessionsChanged(sessionManager?.getActiveSessions(componentName))
+                Log.i("DiscordMediaService", "Refreshing sessions request received via Receiver")
+                val componentName = ComponentName(context, DiscordMediaService::class.java)
+                val controllers = sessionManager?.getActiveSessions(componentName)
+                if (controllers != null) {
+                    onActiveSessionsChanged(controllers)
+                }
             }
         }
     }
+
+
+
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -130,13 +144,6 @@ class DiscordMediaService : NotificationListenerService() {
             }
             stopSelf()
             return START_NOT_STICKY
-        } else if (intent?.action == ACTION_REFRESH_SESSIONS) {
-            Log.i("DiscordMediaService", "Refreshing sessions request received")
-            val componentName = ComponentName(this, DiscordMediaService::class.java)
-            val controllers = sessionManager?.getActiveSessions(componentName)
-            if (controllers != null) {
-                onActiveSessionsChanged(controllers)
-            }
         }
         return super.onStartCommand(intent, flags, startId)
     }
@@ -210,6 +217,7 @@ class DiscordMediaService : NotificationListenerService() {
         if (!prefs.getBoolean(KEY_RPC_ENABLED, true)) {
             Log.d("DiscordMediaService", "RPC is disabled, clearing activity and shutting down")
             unregisterCurrent()
+            currentController = null // Force re-registration on re-enable
             DiscordGateway.clearActivity()
             DiscordGateway.shutdownDiscord()
             return
@@ -285,7 +293,10 @@ class DiscordMediaService : NotificationListenerService() {
     }
 
     private fun updatePresenceFromController(controller: MediaController?) {
-        if (controller == null) return
+        if (controller == null) {
+            Log.w("DiscordMediaService", "updatePresence: Controller is null")
+            return
+        }
         
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         if (!prefs.getBoolean(KEY_RPC_ENABLED, true)) {
@@ -295,7 +306,11 @@ class DiscordMediaService : NotificationListenerService() {
             DiscordGateway.shutdownDiscord()
             return
         }
-        val metadata = controller.metadata ?: return
+        val metadata = controller.metadata
+        if (metadata == null) {
+             Log.w("DiscordMediaService", "updatePresence: Metadata is null for ${controller.packageName}")
+             return
+        }
         
         val packageName = controller.packageName
         
