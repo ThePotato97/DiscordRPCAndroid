@@ -17,10 +17,10 @@ interface MetadataParser {
 class DefaultParser : MetadataParser {
     override fun parse(metadata: MediaMetadata): ParsedMetadata {
         val title = metadata.getString(MediaMetadata.METADATA_KEY_TITLE) ?: "Unknown Title"
-        val artist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: "Unknown Artist"
+        val artist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST)
         return ParsedMetadata(
             details = title,
-            state = artist,
+            state = artist ?: "",
             displayType = StatusDisplayTypes.STATE
         )
     }
