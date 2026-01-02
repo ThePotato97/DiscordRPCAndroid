@@ -29,6 +29,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
 import com.example.discordrpc.ui.components.AppCard
 import com.example.discordrpc.ui.components.StatusCard
 import com.frosch2010.fuzzywuzzy_kotlin.FuzzySearch
@@ -146,14 +151,47 @@ fun MainScreen(
 
     Scaffold(
         topBar = {
-            MediumTopAppBar(
-                title = { Text("Discord RPC") },
+            TopAppBar(
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        if (user != null) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                                    .data(user.getAvatarUrl())
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "Avatar",
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                            )
+                            Column {
+                                Text(
+                                    text = user.username,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Discord RPC",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        } else {
+                            Text("Discord RPC")
+                        }
+                    }
+                },
                 actions = {
                     IconButton(onClick = onLogout) {
                         Icon(Icons.Filled.Logout, contentDescription = "Logout")
                     }
                 },
-                colors = TopAppBarDefaults.mediumTopAppBarColors(
+                colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
             )
