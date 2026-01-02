@@ -6,6 +6,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Tv
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,20 +54,20 @@ fun StatusCard(
         ) {
             // Activity Header
             val type = ActivityType.fromInt(activityType)
-            val headerText = when (type) {
-                ActivityType.PLAYING -> "PLAYING"
-                ActivityType.STREAMING -> "STREAMING"
-                ActivityType.LISTENING -> "LISTENING"
-                ActivityType.WATCHING -> "WATCHING"
-                else -> "PLAYING"
+            val verb = when (type) {
+                ActivityType.PLAYING -> "Playing"
+                ActivityType.STREAMING -> "Streaming"
+                ActivityType.LISTENING -> "Listening to"
+                ActivityType.WATCHING -> "Watching"
+                else -> "Playing"
             }
+            val headerText = "$verb ${appName ?: "something"}"
             
             Text(
                 text = headerText,
-                color = Color(0xFFB5BAC1),
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 0.5.sp
+                color = Color.White,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold
             )
             
             Spacer(modifier = Modifier.height(12.dp))
@@ -103,38 +105,39 @@ fun StatusCard(
                 Spacer(modifier = Modifier.width(16.dp))
                 
                 Column {
-                    // Line 1: App Name / Title (Bold)
-                    Text(
-                        text = appName ?: "Discord RPC",
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1
-                    )
-                    
-                    // Line 2: Details
+                    // Line 1: Details (Bold) - e.g. Video Title
                     if (!details.isNullOrEmpty()) {
                         Text(
                             text = details,
-                            color = Color(0xFFDBDEE1),
-                            style = MaterialTheme.typography.bodyMedium,
-                            maxLines = 1
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 2 // Allow wrap for long titles like in the image
                         )
                     }
                     
-                    // Line 3: State
+                    // Line 2: State - e.g. Channel/Artist
                     if (!state.isNullOrEmpty()) {
                         Text(
-                            text = state, 
+                            text = state,
                             color = Color(0xFFDBDEE1),
                             style = MaterialTheme.typography.bodyMedium,
                             maxLines = 1
                         )
                     }
                     
-                    // Timer
+                    // Line 3: Timer with Icon
                     if (start > 0 || end > 0) {
-                        PresenceTimer(start, end)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Filled.Tv,
+                                contentDescription = "Timer Icon",
+                                tint = Color(0xFF43B581), // Discord "Online" Green
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            PresenceTimer(start, end)
+                        }
                     }
                 }
             }
@@ -172,8 +175,9 @@ fun PresenceTimer(start: Long, end: Long) {
     
     Text(
         text = timeText,
-        color = Color(0xFFB5BAC1),
-        style = MaterialTheme.typography.bodySmall
+        color = Color(0xFF43B581), // Green like in the image
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = FontWeight.Bold
     )
 }
 
