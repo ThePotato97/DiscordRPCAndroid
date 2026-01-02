@@ -35,6 +35,8 @@ class DiscordMediaService : NotificationListenerService() {
     companion object {
         const val ACTION_STATUS_UPDATE = "com.example.discordrpc.STATUS_UPDATE"
         const val ACTION_REFRESH_SESSIONS = "com.example.discordrpc.REFRESH_SESSIONS"
+        const val ACTION_STOP_SERVICE = "com.example.discordrpc.STOP_SERVICE"
+        const val KEY_RPC_ENABLED = "rpc_enabled"
         const val EXTRA_STATUS = "status"
         const val EXTRA_DETAILS = "details"
         const val EXTRA_IMAGE = "image"
@@ -99,6 +101,11 @@ class DiscordMediaService : NotificationListenerService() {
         }
         val pendingIntent: PendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
 
+        val stopIntent = Intent(this, DiscordMediaService::class.java).apply {
+            action = ACTION_STOP_SERVICE
+        }
+        val stopPendingIntent = PendingIntent.getService(this, 1, stopIntent, PendingIntent.FLAG_IMMUTABLE)
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentTitle(title)
@@ -106,7 +113,32 @@ class DiscordMediaService : NotificationListenerService() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Exit", stopPendingIntent)
             .build()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP_SERVICE) {
+            Log.i("DiscordMediaService", "Stop service action received")
+            unregisterCurrent()
+            DiscordGateway.shutdownDiscord()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                stopForeground(true)
+            }
+            stopSelf()
+            return START_NOT_STICKY
+        } else if (intent?.action == ACTION_REFRESH_SESSIONS) {
+            Log.i("DiscordMediaService", "Refreshing sessions request received")
+            val componentName = ComponentName(this, DiscordMediaService::class.java)
+            val controllers = sessionManager?.getActiveSessions(componentName)
+            if (controllers != null) {
+                onActiveSessionsChanged(controllers)
+            }
+        }
+        return super.onStartCommand(intent, flags, startId)
     }
 
     private fun updateNotification(
@@ -173,11 +205,18 @@ class DiscordMediaService : NotificationListenerService() {
 
     private fun onActiveSessionsChanged(controllers: List<MediaController>?) {
         Log.i("DiscordMediaService", "Active sessions changed: ${controllers?.size ?: 0} sessions")
-        controllers?.forEach { Log.i("DiscordMediaService", "Found session: ${it.packageName}") }
         
-        val allowedApps = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getStringSet(KEY_ALLOWED_APPS, emptySet()) ?: emptySet()
-        Log.i("DiscordMediaService", "Allowed apps: $allowedApps")
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        if (!prefs.getBoolean(KEY_RPC_ENABLED, true)) {
+            Log.d("DiscordMediaService", "RPC is disabled, clearing activity and shutting down")
+            unregisterCurrent()
+            DiscordGateway.clearActivity()
+            DiscordGateway.shutdownDiscord()
+            return
+        }
+
+        val allowedApps = prefs.getStringSet(KEY_ALLOWED_APPS, emptySet()) ?: emptySet()
+        Log.i("DiscordMediaService", "Found sessions: ${controllers?.map { it.packageName }}")
 
         val filteredControllers = controllers?.filter { allowedApps.contains(it.packageName) }
 
@@ -206,9 +245,7 @@ class DiscordMediaService : NotificationListenerService() {
             registerCallback(selectedController)
             updatePresenceFromController(selectedController)
         } else {
-             // Same session, maybe state changed? Check manually just in case
-             // But callback handles metadata changes. We don't need to force update here unless needed.
-             // We can force one update to be safe.
+             // Same session, force one update to be safe.
              updatePresenceFromController(selectedController)
         }
     }
@@ -249,6 +286,15 @@ class DiscordMediaService : NotificationListenerService() {
 
     private fun updatePresenceFromController(controller: MediaController?) {
         if (controller == null) return
+        
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        if (!prefs.getBoolean(KEY_RPC_ENABLED, true)) {
+            Log.d("DiscordMediaService", "RPC is disabled, clearing activity and shutting down")
+            unregisterCurrent()
+            DiscordGateway.clearActivity()
+            DiscordGateway.shutdownDiscord()
+            return
+        }
         val metadata = controller.metadata ?: return
         
         val packageName = controller.packageName
@@ -265,7 +311,6 @@ class DiscordMediaService : NotificationListenerService() {
         val position = controller.playbackState?.position ?: 0L
         
         // Helper to get type
-        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         val type = prefs.getInt("app_type_$packageName", ActivityType.LISTENING.value)
         
         // Handle Album Art

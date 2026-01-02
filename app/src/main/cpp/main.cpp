@@ -10,6 +10,7 @@
 #include <optional>
 #include <memory>
 #include <chrono> // Added for std::chrono::milliseconds
+#include <mutex>
 
 #define DISCORDPP_IMPLEMENTATION
 #include "discordpp.h"
@@ -26,6 +27,7 @@ static std::thread g_callbackThread;
 static std::atomic<bool> g_running{false};
 static std::atomic<bool> g_connected{false};
 static std::optional<discordpp::AuthorizationCodeVerifier> g_codeVerifier;
+static std::mutex g_sdkMutex;
 
 struct PendingActivity {
     std::string details;
@@ -41,6 +43,7 @@ struct PendingActivity {
 static std::optional<PendingActivity> g_pendingActivity;
 
 void applyPendingActivity() {
+    std::lock_guard<std::mutex> lock(g_sdkMutex);
     if (!g_client || !g_connected || !g_pendingActivity) return;
     
     LOGI("Applying pending Rich Presence (Absolute Timestamps)...");
@@ -363,7 +366,25 @@ Java_com_example_discordrpc_DiscordGateway_restoreSession(JNIEnv* env, jobject t
 }
 
 extern "C" JNIEXPORT void JNICALL
+Java_com_example_discordrpc_DiscordGateway_clearActivity(JNIEnv* env, jobject thiz) {
+    std::lock_guard<std::mutex> lock(g_sdkMutex);
+    if (!g_client || !g_connected) {
+        LOGE("clearActivity: Client not ready or not connected");
+        return;
+    }
+    LOGI("Clearing Rich Presence activity");
+    g_client->UpdateRichPresence(discordpp::Activity{}, [](discordpp::ClientResult result) {
+        if (!result.Successful()) {
+            LOGE("Clear activity failed: %s", result.Error().c_str());
+        } else {
+            LOGI("Clear activity successful");
+        }
+    });
+}
+
+extern "C" JNIEXPORT void JNICALL
 Java_com_example_discordrpc_DiscordGateway_shutdownDiscord(JNIEnv* env, jobject thiz) {
+    std::lock_guard<std::mutex> lock(g_sdkMutex);
     LOGI("Shutting down Discord SDK");
     g_running = false;
     g_connected = false;

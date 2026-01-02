@@ -11,6 +11,7 @@ object DiscordGateway {
     external fun connect()
     external fun updateRichPresence(appName: String, details: String, state: String, imageKey: String, type: Int, statusDisplayType: Int)
     external fun updateRichPresenceWithTimestamps(appName: String, details: String, state: String, imageKey: String, start: Long, end: Long, type: Int, statusDisplayType: Int)
+    external fun clearActivity()
     external fun restoreSession(accessToken: String, refreshToken: String)
     external fun requestUserUpdate()
 

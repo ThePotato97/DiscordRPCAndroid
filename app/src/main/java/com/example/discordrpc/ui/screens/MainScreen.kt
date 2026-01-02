@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material3.*
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.*
@@ -58,9 +59,11 @@ fun MainScreen(
     start: Long = 0,
     end: Long = 0,
     user: com.example.discordrpc.models.DiscordUser? = null,
+    isRpcEnabled: Boolean = true,
     apps: List<AppItem>,
     isLoading: Boolean = false,
     onAppToggled: (String, Boolean) -> Unit,
+    onRpcToggle: (Boolean) -> Unit,
     onActivityTypeChanged: (String, Int) -> Unit,
     onLogout: () -> Unit
 ) {
@@ -190,6 +193,30 @@ fun MainScreen(
                     }
                 },
                 actions = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(end = 8.dp)
+                    ) {
+                        Text(
+                            text = "RPC",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (isRpcEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Switch(
+                            checked = isRpcEnabled,
+                            onCheckedChange = { onRpcToggle(it) },
+                            thumbContent = if (isRpcEnabled) {
+                                {
+                                    Icon(
+                                        imageVector = Icons.Filled.Tv,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(SwitchDefaults.IconSize),
+                                    )
+                                }
+                            } else null
+                        )
+                    }
                     IconButton(onClick = onLogout) {
                         Icon(Icons.Filled.Logout, contentDescription = "Logout")
                     }

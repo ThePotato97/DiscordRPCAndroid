@@ -94,6 +94,11 @@ class MainActivity : ComponentActivity() {
                 var startTime by remember { mutableStateOf(0L) }
                 var endTime by remember { mutableIntStateOf(0).let { mutableStateOf(0L) } }
                 
+                // RPC State
+                var isRpcEnabled by remember { 
+                    mutableStateOf(prefs.getBoolean(DiscordMediaService.KEY_RPC_ENABLED, true)) 
+                }
+                
                 // User State
                 var currentUser by remember { mutableStateOf(DiscordGateway.currentUser) }
                 
@@ -245,6 +250,14 @@ class MainActivity : ComponentActivity() {
                 }
 
                 MainScreen(
+                    isRpcEnabled = isRpcEnabled,
+                    onRpcToggle = { enabled ->
+                        Log.i("MainActivity", "Global RPC Toggled: $enabled")
+                        isRpcEnabled = enabled
+                        prefs.edit().putBoolean(DiscordMediaService.KEY_RPC_ENABLED, enabled).apply()
+                        // Notify service to refresh (it reads prefs on next update)
+                        sendBroadcast(Intent(DiscordMediaService.ACTION_REFRESH_SESSIONS))
+                    },
                     status = statusText,
                     details = detailsText,
                     state = stateText,
