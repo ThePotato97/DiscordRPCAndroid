@@ -31,9 +31,11 @@ struct PendingActivity {
     std::string details;
     std::string state;
     std::string imageKey;
+    std::string appName;
     long long start = 0;
     long long end = 0;
     int type = 2; // Default to Listening
+    int statusDisplayType = 0; // 0=State, 1=Details
     bool hasTimestamps = false;
 };
 static std::optional<PendingActivity> g_pendingActivity;
@@ -45,10 +47,11 @@ void applyPendingActivity() {
     discordpp::Activity activity;
     
     activity.SetType(static_cast<discordpp::ActivityTypes>(g_pendingActivity->type));
-    activity.SetStatusDisplayType(discordpp::StatusDisplayTypes::State);
+    activity.SetStatusDisplayType(static_cast<discordpp::StatusDisplayTypes>(g_pendingActivity->statusDisplayType));
 
-    activity.SetState(g_pendingActivity->details.c_str());   // Title -> State
-    activity.SetDetails(g_pendingActivity->state.c_str());   // Artist -> Details
+    activity.SetDetails(g_pendingActivity->details.c_str()); // Details = Top Line
+    activity.SetState(g_pendingActivity->state.c_str());     // State = Bottom Line
+    activity.SetName(g_pendingActivity->appName.c_str());    // App Name
     
     if (g_pendingActivity->hasTimestamps) {
         discordpp::ActivityTimestamps timestamps;
@@ -74,34 +77,38 @@ void applyPendingActivity() {
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_example_discordrpc_DiscordGateway_updateRichPresence(JNIEnv* env, jobject thiz, jstring jdetails, jstring jstate, jstring jimageKey, jint jtype) {
+Java_com_example_discordrpc_DiscordGateway_updateRichPresence(JNIEnv* env, jobject thiz, jstring jAppName, jstring jdetails, jstring jstate, jstring jimageKey, jint jtype, jint jStatusDisplayType) {
+    const char* appName = env->GetStringUTFChars(jAppName, nullptr);
     const char* details = env->GetStringUTFChars(jdetails, nullptr);
     const char* state = env->GetStringUTFChars(jstate, nullptr);
     const char* imageKey = env->GetStringUTFChars(jimageKey, nullptr);
     
-    g_pendingActivity = {details, state, imageKey, 0, 0, (int)jtype, false};
+    g_pendingActivity = {details, state, imageKey, appName, 0, 0, (int)jtype, (int)jStatusDisplayType, false};
     
-    LOGI("Pending Rich Presence (Standard): Type=%d, Key=%s", (int)jtype, imageKey);
+    LOGI("Pending Rich Presence (Standard): App=%s, Type=%d, Display=%d", appName, (int)jtype, (int)jStatusDisplayType);
     
     applyPendingActivity();
     
+    env->ReleaseStringUTFChars(jAppName, appName);
     env->ReleaseStringUTFChars(jdetails, details);
     env->ReleaseStringUTFChars(jstate, state);
     env->ReleaseStringUTFChars(jimageKey, imageKey);
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_example_discordrpc_DiscordGateway_updateRichPresenceWithTimestamps(JNIEnv* env, jobject thiz, jstring jdetails, jstring jstate, jstring jimageKey, jlong jstart, jlong jend, jint jtype) {
+Java_com_example_discordrpc_DiscordGateway_updateRichPresenceWithTimestamps(JNIEnv* env, jobject thiz, jstring jAppName, jstring jdetails, jstring jstate, jstring jimageKey, jlong jstart, jlong jend, jint jtype, jint jStatusDisplayType) {
+    const char* appName = env->GetStringUTFChars(jAppName, nullptr);
     const char* details = env->GetStringUTFChars(jdetails, nullptr);
     const char* state = env->GetStringUTFChars(jstate, nullptr);
     const char* imageKey = env->GetStringUTFChars(jimageKey, nullptr);
     
-    g_pendingActivity = {details, state, imageKey, (long long)jstart, (long long)jend, (int)jtype, true};
+    g_pendingActivity = {details, state, imageKey, appName, (long long)jstart, (long long)jend, (int)jtype, (int)jStatusDisplayType, true};
     
-    LOGI("Pending Rich Presence w/ Timestamps: Type=%d, Key=%s", (int)jtype, imageKey);
+    LOGI("Pending Rich Presence w/ Timestamps: App=%s, Type=%d, Display=%d", appName, (int)jtype, (int)jStatusDisplayType);
     
     applyPendingActivity();
     
+    env->ReleaseStringUTFChars(jAppName, appName);
     env->ReleaseStringUTFChars(jdetails, details);
     env->ReleaseStringUTFChars(jstate, state);
     env->ReleaseStringUTFChars(jimageKey, imageKey);
@@ -116,13 +123,57 @@ void runCallbackLoop() {
     LOGI("Callback loop stopped");
 }
 
+static JavaVM* g_jvm = nullptr;
+static jobject g_gateway = nullptr;
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_example_discordrpc_DiscordGateway_initDiscord(JNIEnv* env, jobject thiz, jlong jclientId) {
+    env->GetJavaVM(&g_jvm);
+    
+    // Update Gateway Reference (Always)
+    if (g_gateway) {
+        env->DeleteGlobalRef(g_gateway);
+    }
+    g_gateway = env->NewGlobalRef(thiz);
+    
+    // Check if already running and connected
+    if (g_running && g_connected && g_client) {
+        LOGI("initDiscord: SDK already connected. Skipping re-initialization.");
+        // PUSH User Update to the (potentially new) UI immediately
+        auto userOpt = g_client->GetCurrentUserV2();
+        if (userOpt.has_value()) {
+            auto user = *userOpt;
+            LOGI("initDiscord: Pushing existing user to UI: %s", user.Username().c_str());
+            
+            jclass gatewayClass = env->GetObjectClass(g_gateway);
+            jmethodID onUserUpdate = env->GetMethodID(gatewayClass, "onCurrentUserUpdate", "(Ljava/lang/String;Ljava/lang/String;JLjava/lang/String;)V");
+            
+            if (onUserUpdate) {
+                jstring jName = env->NewStringUTF(user.Username().c_str());
+                jstring jDisc = env->NewStringUTF("0");
+                
+                std::string avatarStr = "";
+                auto avatarOpt = user.Avatar();
+                if (avatarOpt.has_value()) {
+                    avatarStr = *avatarOpt;
+                }
+                jstring jAvatar = env->NewStringUTF(avatarStr.c_str());
+                
+                env->CallVoidMethod(g_gateway, onUserUpdate, jName, jDisc, (jlong)user.Id(), jAvatar);
+                
+                env->DeleteLocalRef(jName);
+                env->DeleteLocalRef(jDisc);
+                env->DeleteLocalRef(jAvatar);
+            }
+        }
+        return;
+    }
+    
     g_applicationId = static_cast<uint64_t>(jclientId);
     LOGI("Initializing Discord SDK with Client ID: %lld", (long long)jclientId);
     
     if (g_running) {
-        LOGI("Discord SDK already running, stopping previous instance");
+        LOGI("Discord SDK running but not connected? Stopping previous instance.");
         g_running = false;
         g_connected = false;
         if (g_callbackThread.joinable()) {
@@ -141,7 +192,46 @@ Java_com_example_discordrpc_DiscordGateway_initDiscord(JNIEnv* env, jobject thiz
         if (status == discordpp::Client::Status::Ready) {
             LOGI("Client is ready");
             g_connected = true;
-            applyPendingActivity();
+            // Fetch User Info
+            auto userOpt = g_client->GetCurrentUserV2();
+            if (userOpt.has_value() && g_jvm && g_gateway) {
+                 auto user = *userOpt;
+                 LOGI("Got User: %s", user.Username().c_str());
+                 
+                 JNIEnv* env;
+                 bool attached = false;
+                 if (g_jvm->GetEnv((void**)&env, JNI_VERSION_1_6) != JNI_OK) {
+                     g_jvm->AttachCurrentThread(&env, nullptr);
+                     attached = true;
+                 }
+                 
+                 jclass gatewayClass = env->GetObjectClass(g_gateway);
+                 jmethodID onUserUpdate = env->GetMethodID(gatewayClass, "onCurrentUserUpdate", "(Ljava/lang/String;Ljava/lang/String;JLjava/lang/String;)V");
+                 
+                 if (onUserUpdate) {
+                     jstring jName = env->NewStringUTF(user.Username().c_str());
+                     jstring jDisc = env->NewStringUTF("0");
+                     
+                     std::string avatarStr = "";
+                     auto avatarOpt = user.Avatar();
+                     if (avatarOpt.has_value()) {
+                         avatarStr = *avatarOpt;
+                     }
+                     jstring jAvatar = env->NewStringUTF(avatarStr.c_str());
+                     
+                     env->CallVoidMethod(g_gateway, onUserUpdate, jName, jDisc, (jlong)user.Id(), jAvatar);
+                     
+                     env->DeleteLocalRef(jName);
+                     env->DeleteLocalRef(jDisc);
+                     env->DeleteLocalRef(jAvatar);
+                 }
+                 
+                 if (attached) {
+                     g_jvm->DetachCurrentThread();
+                 }
+            } else {
+                 LOGI("GetCurrentUserV2 returned no user.");
+            }
         } else if (error != discordpp::Client::Error::None) {
             LOGE("Connection Error: %s Detail: %d", discordpp::Client::ErrorToString(error).c_str(), errorDetail);
             g_connected = false;
@@ -281,4 +371,50 @@ Java_com_example_discordrpc_DiscordGateway_shutdownDiscord(JNIEnv* env, jobject 
         g_callbackThread.join();
     }
     g_client.reset();
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_example_discordrpc_DiscordGateway_requestUserUpdate(JNIEnv* env, jobject thiz) {
+    if (!g_client || !g_connected) {
+        LOGE("requestUserUpdate: Client not ready or not connected");
+        return;
+    }
+    
+    // Fetch User Info
+    auto userOpt = g_client->GetCurrentUserV2();
+    if (userOpt.has_value()) {
+         auto user = *userOpt;
+         LOGI("requestUserUpdate: Got User from cache: %s", user.Username().c_str());
+         
+         jclass gatewayClass = env->GetObjectClass(thiz);
+         jmethodID onUserUpdate = env->GetMethodID(gatewayClass, "onCurrentUserUpdate", "(Ljava/lang/String;Ljava/lang/String;JLjava/lang/String;)V");
+         
+         if (onUserUpdate) {
+             LOGI("requestUserUpdate: Found Java callback method");
+             jstring jName = env->NewStringUTF(user.Username().c_str());
+             jstring jDisc = env->NewStringUTF("0");
+             
+             std::string avatarStr = "";
+             auto avatarOpt = user.Avatar();
+             if (avatarOpt.has_value()) {
+                 avatarStr = *avatarOpt;
+             }
+             jstring jAvatar = env->NewStringUTF(avatarStr.c_str());
+             
+             env->CallVoidMethod(thiz, onUserUpdate, jName, jDisc, (jlong)user.Id(), jAvatar);
+             
+             env->DeleteLocalRef(jName);
+             env->DeleteLocalRef(jDisc);
+             env->DeleteLocalRef(jAvatar);
+         } else {
+             LOGE("requestUserUpdate: Could NOT find onCurrentUserUpdate method! Check signature.");
+         }
+    } else {
+         LOGI("requestUserUpdate: No user logic available in client cache (yet)");
+         // Attempt to force a fetch if possible, or just wait?
+         // For now, logging this is crucial to know if we are waiting on Discord or on JNI.
+         
+         // Fallback: If no user, maybe we aren't fully ready?
+         // But g_connected is true.
+    }
 }

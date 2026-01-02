@@ -15,6 +15,7 @@ import android.service.notification.NotificationListenerService
 import android.util.Log
 import android.graphics.Bitmap
 import androidx.core.app.NotificationCompat
+import com.example.discordrpc.models.StatusDisplayTypes
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -32,11 +33,18 @@ class DiscordMediaService : NotificationListenerService() {
     
     companion object {
         const val ACTION_STATUS_UPDATE = "com.example.discordrpc.STATUS_UPDATE"
+        const val ACTION_REFRESH_SESSIONS = "com.example.discordrpc.REFRESH_SESSIONS"
         const val EXTRA_STATUS = "status"
         const val EXTRA_DETAILS = "details"
+        const val EXTRA_IMAGE = "image"
+        const val EXTRA_START_TIME = "start_time"
+        const val EXTRA_END_TIME = "end_time"
+        const val ACTION_APPS_UPDATE = "com.example.discordrpc.APPS_UPDATE"
+        const val EXTRA_APPS_LIST = "apps_list"
         
         var currentStatus: String? = null
         var currentDetails: String? = null
+        var currentImage: String? = null
     }
     
     override fun onCreate() {
@@ -44,6 +52,24 @@ class DiscordMediaService : NotificationListenerService() {
         Log.i("DiscordMediaService", "Service Created")
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, createNotification("Initializing...", "Waiting for media sessions"))
+        
+        // Register refresh receiver
+        val filter = android.content.IntentFilter(ACTION_REFRESH_SESSIONS)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(refreshReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(refreshReceiver, filter)
+        }
+    }
+
+    private val refreshReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == ACTION_REFRESH_SESSIONS) {
+                Log.i("DiscordMediaService", "Refresh requested via broadcast")
+                val componentName = ComponentName(this@DiscordMediaService, DiscordMediaService::class.java)
+                onActiveSessionsChanged(sessionManager?.getActiveSessions(componentName))
+            }
+        }
     }
 
     private fun createNotificationChannel() {
@@ -76,19 +102,23 @@ class DiscordMediaService : NotificationListenerService() {
             .build()
     }
 
-    private fun updateNotification(title: String, text: String) {
+    private fun updateNotification(title: String, text: String, image: String? = null, start: Long = 0, end: Long = 0) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(NOTIFICATION_ID, createNotification(title, text))
         
         // Update Static Cache
         currentStatus = title.replace("Discord RPC: ", "")
         currentDetails = text
+        currentImage = image
         
         // Also broadcast to MainActivity
         val intent = Intent(ACTION_STATUS_UPDATE).apply {
             setPackage(packageName)
             putExtra(EXTRA_STATUS, currentStatus)
             putExtra(EXTRA_DETAILS, currentDetails)
+            putExtra(EXTRA_IMAGE, currentImage)
+            putExtra(EXTRA_START_TIME, start)
+            putExtra(EXTRA_END_TIME, end)
         }
         sendBroadcast(intent)
     }
@@ -121,19 +151,25 @@ class DiscordMediaService : NotificationListenerService() {
 
     private fun onActiveSessionsChanged(controllers: List<MediaController>?) {
         Log.i("DiscordMediaService", "Active sessions changed: ${controllers?.size ?: 0} sessions")
+        controllers?.forEach { Log.i("DiscordMediaService", "Found session: ${it.packageName}") }
         
         val allowedApps = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getStringSet(KEY_ALLOWED_APPS, emptySet()) ?: emptySet()
+        Log.i("DiscordMediaService", "Allowed apps: $allowedApps")
 
         val filteredControllers = controllers?.filter { allowedApps.contains(it.packageName) }
 
         if (filteredControllers.isNullOrEmpty()) {
             Log.i("DiscordMediaService", "No active media sessions from allowed apps")
+            broadcastAppsList(controllers) // Broadcast all found controllers so UI can show them
             unregisterCurrent()
-            DiscordGateway.updateRichPresence("Idle", "Waiting for media...", "", 2)
-            updateNotification("Discord RPC: Idle", "Waiting for media playback")
+            DiscordGateway.updateRichPresence("Discord RPC", "Idle", "Waiting for media...", "", 2, StatusDisplayTypes.STATE.value)
+            updateNotification("Discord RPC: Idle", "Waiting for media playback", null, 0, 0)
             return
         }
+
+        // Broadcast available apps to UI
+        broadcastAppsList(controllers)
 
         // Prioritize a playing controller, or fallback to the most recent one (first usually)
         val selectedController = filteredControllers.find { 
@@ -183,7 +219,7 @@ class DiscordMediaService : NotificationListenerService() {
             override fun onSessionDestroyed() {
                  Log.d("DiscordMediaService", "Session destroyed")
                  unregisterCurrent()
-                 DiscordGateway.updateRichPresence("Idle", "Waiting for media...", "", 2)
+                 DiscordGateway.updateRichPresence("Discord RPC", "Idle", "Waiting for media...", "", 2, StatusDisplayTypes.STATE.value)
             }
         }
         controller.registerCallback(callback!!)
@@ -191,22 +227,28 @@ class DiscordMediaService : NotificationListenerService() {
 
     private fun updatePresenceFromController(controller: MediaController?) {
         if (controller == null) return
-        val metadata = controller.metadata
+        val metadata = controller.metadata ?: return
         
-        val title = metadata?.getString(MediaMetadata.METADATA_KEY_TITLE) ?: "Unknown Title"
-        val artist = metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: "Unknown Artist"
-        val duration = metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0L
-        val position = controller.playbackState?.position ?: 0L
         val packageName = controller.packageName
         
-        Log.i("DiscordMediaService", "Updating presence: $title - $artist ($packageName)")
+        // Delegate parsing to modular system
+        val parser = com.example.discordrpc.parsing.MetadataParserFactory.getParser(packageName)
+        val parsed = parser.parse(metadata)
         
+        val details = parsed.details
+        val state = parsed.state
+        val displayType = parsed.displayType.value
+        
+        val duration = metadata.getLong(MediaMetadata.METADATA_KEY_DURATION)
+        val position = controller.playbackState?.position ?: 0L
+        
+        // Helper to get type
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         val type = prefs.getInt("app_type_$packageName", 2) // Default to Listening (2)
         
         // Handle Album Art
         var imageKey = "" // Default to no image
-        val trackId = "$title|$artist|$packageName"
+        val trackId = "$details|$state|$packageName"
         val cachedUrl = urlCache[trackId]
         
         if (cachedUrl != null) {
@@ -234,20 +276,45 @@ class DiscordMediaService : NotificationListenerService() {
              }
         }
         
-        val state = controller.playbackState?.state
-        if (duration > 0 && state == android.media.session.PlaybackState.STATE_PLAYING) {
+        var appName = "Unknown App"
+        try {
+            val appInfo = packageManager.getApplicationInfo(packageName, 0)
+            appName = packageManager.getApplicationLabel(appInfo).toString()
+        } catch (e: Exception) {
+            Log.w("DiscordMediaService", "Could not get app label for $packageName")
+        }
+
+        val playbackState = controller.playbackState?.state
+        if (duration > 0 && playbackState == android.media.session.PlaybackState.STATE_PLAYING) {
             val now = System.currentTimeMillis()
             val startTs = now - position
             val endTs = startTs + duration
             Log.d("DiscordMediaService", "Sending presence update with timestamps")
-            DiscordGateway.updateRichPresenceWithTimestamps(title, artist, imageKey, startTs, endTs, type)
+            DiscordGateway.updateRichPresenceWithTimestamps(appName, details, state, imageKey, startTs, endTs, type, displayType)
         } else {
             Log.d("DiscordMediaService", "Sending standard presence update")
-            DiscordGateway.updateRichPresence(title, artist, imageKey, type)
+            DiscordGateway.updateRichPresence(appName, details, state, imageKey, type, displayType)
         }
         
-        val statusText = if (state == android.media.session.PlaybackState.STATE_PLAYING) "Playing" else "Paused"
-        updateNotification("Discord RPC: $statusText", "$title - $artist")
+        val statusText = if (playbackState == android.media.session.PlaybackState.STATE_PLAYING) "Playing" else "Paused"
+        
+        val isPlaying = playbackState == android.media.session.PlaybackState.STATE_PLAYING
+        val s = if (isPlaying && duration > 0) (System.currentTimeMillis() - (controller.playbackState?.position ?: 0)) else 0L
+        val e = if (isPlaying && duration > 0) s + duration else 0L
+        
+        updateNotification("Discord RPC: $statusText", "$appName: $details", imageKey, s, e)
+    }
+
+    private fun broadcastAppsList(controllers: List<MediaController>?) {
+        val packages = ArrayList<String>()
+        controllers?.forEach { packages.add(it.packageName) }
+        
+        val intent = Intent(ACTION_APPS_UPDATE).apply {
+            setPackage(packageName)
+            putStringArrayListExtra(EXTRA_APPS_LIST, packages)
+        }
+        sendBroadcast(intent)
+        Log.d("DiscordMediaService", "Broadcasted apps list: ${packages.size} apps")
     }
 
     private val urlCache = mutableMapOf<String, String>()

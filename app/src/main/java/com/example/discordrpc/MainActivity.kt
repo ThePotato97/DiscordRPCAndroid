@@ -15,58 +15,38 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.runtime.*
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.discord.socialsdk.DiscordSocialSdkInit
+import com.example.discordrpc.ui.screens.AppItem
+import com.example.discordrpc.ui.screens.MainScreen
+import com.example.discordrpc.ui.theme.DiscordRPCTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class MainActivity : AppCompatActivity() {
+import androidx.activity.enableEdgeToEdge
+
+class MainActivity : ComponentActivity() {
     
     private lateinit var prefs: android.content.SharedPreferences
-    private var isReceiverRegistered = false
-    
-    // UI Components
-    private lateinit var recyclerView: RecyclerView
-    private lateinit var searchView: com.google.android.material.search.SearchView
-    private lateinit var searchBar: com.google.android.material.search.SearchBar
-    private lateinit var searchResultsRecyclerView: RecyclerView
-
-    // Adapters
-    private lateinit var headerAdapter: HeaderAdapter
-    private lateinit var appAdapter: AppAdapter
-    private lateinit var searchAdapter: AppAdapter
-    private lateinit var concatAdapter: ConcatAdapter
     
     // Data
-    private var fullAppList: List<AppItem> = emptyList()
+    // Data
+
     private val PREFS_NAME = "discord_rpc_prefs"
     private val KEY_ALLOWED_APPS = "allowed_apps"
 
-    // Initial Status placeholders
-    private var currentStatusText = "Connected to Discord"
-    private var currentDetailsText = "Waiting for service..."
-
-    private val statusReceiver = object : android.content.BroadcastReceiver() {
-        override fun onReceive(context: android.content.Context, intent: android.content.Intent) {
-            val status = intent.getStringExtra(DiscordMediaService.EXTRA_STATUS)
-            val details = intent.getStringExtra(DiscordMediaService.EXTRA_DETAILS)
-            if (status != null) currentStatusText = status
-            if (details != null) currentDetailsText = details
-            
-            // Notify header to update if initialized
-            if (::headerAdapter.isInitialized) {
-                headerAdapter.updateStatus(currentStatusText, currentDetailsText)
-            }
-        }
-    }
+    // Legacy RecyclerView classes removed
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         
         prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         val onboardingCompleted = prefs.getBoolean("onboarding_completed", false)
@@ -76,26 +56,6 @@ class MainActivity : AppCompatActivity() {
             finish()
             return
         }
-
-        setContentView(R.layout.activity_main)
-        setSupportActionBar(findViewById(R.id.topAppBar))
-
-        // Init Views
-        recyclerView = findViewById(R.id.apps_recycler_view)
-        searchBar = findViewById(R.id.search_bar)
-        searchView = findViewById(R.id.search_view)
-        searchResultsRecyclerView = findViewById(R.id.search_results_recycler_view)
-
-        setupAdapters()
-        setupSearch()
-        
-        // Register Receiver
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(statusReceiver, android.content.IntentFilter(DiscordMediaService.ACTION_STATUS_UPDATE), RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(statusReceiver, android.content.IntentFilter(DiscordMediaService.ACTION_STATUS_UPDATE))
-        }
-        isReceiverRegistered = true
 
         // Init Discord
         DiscordSocialSdkInit.setEngineActivity(this)
@@ -119,243 +79,230 @@ class MainActivity : AppCompatActivity() {
             DiscordGateway.restoreSession(savedAccess, savedRefresh)
         }
         
-        DiscordGateway.connect()
-        
-        loadApps()
-    }
+        // Set Compose content
+        setContent {
+            DiscordRPCTheme {
+                val apps = remember { mutableStateListOf<com.example.discordrpc.ui.screens.AppItem>() }
+                var isLoading by remember { mutableStateOf(true) }
+                var statusText by remember { mutableStateOf(DiscordMediaService.currentStatus ?: "Connected to Discord") }
+                var detailsText by remember { mutableStateOf(DiscordMediaService.currentDetails ?: "Waiting for service...") }
+                var imageKey by remember { mutableStateOf(DiscordMediaService.currentImage) }
+                var startTime by remember { mutableStateOf(0L) }
+                var endTime by remember { mutableStateOf(0L) }
+                
+                // User State
+                var currentUser by remember { mutableStateOf(DiscordGateway.currentUser) }
+                
+                // Stream apps in
+                LaunchedEffect(Unit) {
+                    sendBroadcast(Intent(DiscordMediaService.ACTION_REFRESH_SESSIONS))
+                    
+                    val pm = packageManager
+                    val allowedApps = getAllowedApps()
 
-    private fun setupAdapters() {
-        // Use cached status if available
-        if (DiscordMediaService.currentStatus != null) {
-            currentStatusText = DiscordMediaService.currentStatus!!
-            currentDetailsText = DiscordMediaService.currentDetails ?: ""
+                    withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        try {
+                            // 1. Fast textual fetch & sort
+                            val installed = pm.getInstalledApplications(android.content.pm.PackageManager.GET_META_DATA)
+                            
+                            // Popular media apps to prioritize
+                            val priorityMediaPackages = setOf(
+                                "com.google.android.youtube",
+                                "com.spotify.music",
+                                "tv.twitch.android.app",
+                                "com.netflix.mediaclient",
+                                "com.disney.disneyplus",
+                                "com.hulu.plus",
+                                "com.amazon.avod.thirdpartyclient",
+                                "com.google.android.apps.youtube.music",
+                                "com.soundcloud.android",
+                                "deezer.android.app",
+                                "com.pandora.android",
+                                "com.tidal.android",
+                                "com.stremio.one",
+                                "app.revanced.android.youtube",
+                                "app.revanced.android.youtube.music",
+                                "app.revanced.android.twitch"
+                            )
+
+                            fun getAppPriority(app: android.content.pm.ApplicationInfo): Int {
+                                // 1. Priority Media Apps (Top)
+                                if (priorityMediaPackages.contains(app.packageName)) return 0
+                                
+                                // Check Category (API 26+)
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                    if (app.category == android.content.pm.ApplicationInfo.CATEGORY_AUDIO ||
+                                        app.category == android.content.pm.ApplicationInfo.CATEGORY_VIDEO) {
+                                        return 1
+                                    }
+                                }
+                                
+                                // 2. User Apps (Middle)
+                                if ((app.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) == 0) return 2
+                                
+                                // 3. System Apps (Bottom)
+                                return 3
+                            }
+
+                            val sortedPackages = installed
+                                .map { it to pm.getApplicationLabel(it).toString() }
+                                .sortedWith(
+                                    compareBy<Pair<android.content.pm.ApplicationInfo, String>> { (app, _) -> 
+                                        getAppPriority(app) 
+                                    }.thenBy { (_, label) -> label }
+                                )
+
+                            // Initial fetch done, hide big spinner so streaming is visible
+                            withContext(kotlinx.coroutines.Dispatchers.Main) { 
+                                isLoading = false 
+                            }
+
+                            // 2. Stream loads
+                            val batch = mutableListOf<com.example.discordrpc.ui.screens.AppItem>()
+                            
+                            sortedPackages.forEachIndexed { index, (appInfo, label) ->
+                                try {
+                                    val item = com.example.discordrpc.ui.screens.AppItem(
+                                        name = label,
+                                        packageName = appInfo.packageName,
+                                        icon = pm.getApplicationIcon(appInfo),
+                                        isEnabled = allowedApps.contains(appInfo.packageName),
+                                        activityType = prefs.getInt("app_type_${appInfo.packageName}", 2)
+                                    )
+                                    batch.add(item)
+
+                                    // Emit every 5 items or at the end
+                                    if (batch.size >= 5 || index == sortedPackages.lastIndex) {
+                                        val chunk = batch.toList()
+                                        withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                            apps.addAll(chunk)
+                                        }
+                                        batch.clear()
+                                    }
+                                } catch (e: Exception) {
+                                    // Skip failed apps
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e("MainActivity", "Error streaming apps", e)
+                            withContext(kotlinx.coroutines.Dispatchers.Main) { isLoading = false }
+                        }
+                    }
+                }
+
+                // User Callback
+                DisposableEffect(Unit) {
+                    DiscordGateway.startUserCallback = { name, disc, id, avatar ->
+                        Log.i("MainActivity", "✅ Received user update in UI: $name (Thread: ${Thread.currentThread().name})")
+                        // Force update on main thread
+                        runOnUiThread {
+                            val newUser = com.example.discordrpc.models.DiscordUser(name, disc, id, avatar)
+                            Log.i("MainActivity", "Setting currentUser from null=${currentUser == null} to $name")
+                            currentUser = newUser
+                            Log.i("MainActivity", "User state updated: ${currentUser?.username}, isNull=${currentUser == null}")
+                        }
+                    }
+                    
+                    // NOW trigger connection - callback is ready
+                    DiscordGateway.connect()
+                    
+                    onDispose { DiscordGateway.startUserCallback = null }
+                }
+
+                // Stream apps in
+// ... (lines 92-185 preserved automatically by context match if I skip them, but simpler to just focus on the Receiver part)
+
+                // Observe broadcast for status updates
+                DisposableEffect(Unit) {
+                    val receiver = object : android.content.BroadcastReceiver() {
+                        override fun onReceive(context: android.content.Context, intent: android.content.Intent) {
+                            if (intent.action == DiscordMediaService.ACTION_STATUS_UPDATE) {
+                                statusText = intent.getStringExtra(DiscordMediaService.EXTRA_STATUS) ?: statusText
+                                detailsText = intent.getStringExtra(DiscordMediaService.EXTRA_DETAILS) ?: detailsText
+                                imageKey = intent.getStringExtra(DiscordMediaService.EXTRA_IMAGE)
+                                startTime = intent.getLongExtra(DiscordMediaService.EXTRA_START_TIME, 0L)
+                                endTime = intent.getLongExtra(DiscordMediaService.EXTRA_END_TIME, 0L)
+                            }
+                        }
+                    }
+
+                    val filter = android.content.IntentFilter().apply {
+                        addAction(DiscordMediaService.ACTION_STATUS_UPDATE)
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        registerReceiver(receiver, filter, RECEIVER_NOT_EXPORTED)
+                    } else {
+                        registerReceiver(receiver, filter)
+                    }
+                    onDispose { unregisterReceiver(receiver) }
+                }
+
+                MainScreen(
+                    status = statusText,
+                    details = detailsText,
+                    image = imageKey,
+                    start = startTime,
+                    end = endTime,
+                    user = currentUser,
+                    apps = apps,
+                    isLoading = isLoading,
+                    onAppToggled = { packageName, enabled ->
+                        updateAppSelection(packageName, enabled)
+                        // Trigger service refresh
+                        sendBroadcast(Intent(DiscordMediaService.ACTION_REFRESH_SESSIONS))
+                        // Refresh the item in the list
+                        val index = apps.indexOfFirst { it.packageName == packageName }
+                        if (index != -1) {
+                            apps[index] = apps[index].copy(isEnabled = enabled)
+                        }
+                    },
+                    onActivityTypeChanged = { packageName, type ->
+                        updateActivityType(packageName, type)
+                        // Trigger service refresh
+                        sendBroadcast(Intent(DiscordMediaService.ACTION_REFRESH_SESSIONS))
+                        // Refresh the item in the list
+                        val index = apps.indexOfFirst { it.packageName == packageName }
+                        if (index != -1) {
+                            apps[index] = apps[index].copy(activityType = type)
+                        }
+                    },
+                    onLogout = {
+                        prefs.edit().clear().apply()
+                        DiscordGateway.shutdownDiscord()
+                        startActivity(Intent(this@MainActivity, OnboardingActivity::class.java))
+                        finish()
+                    }
+                )
+            }
         }
-        
-        // 1. Header Adapter (Status Card)
-        headerAdapter = HeaderAdapter(currentStatusText, currentDetailsText)
-        
-        // 2. App Adapter (Main List)
-        val onCheckedChange: (AppItem, Boolean) -> Unit = { app, isChecked ->
-            updateAppSelection(app, isChecked)
-        }
-        appAdapter = AppAdapter(mutableListOf(), prefs, onCheckedChange)
-        
-        // Combine them
-        concatAdapter = ConcatAdapter(headerAdapter, appAdapter)
-        
-        recyclerView.layoutManager = LinearLayoutManager(this)
-        recyclerView.adapter = concatAdapter
-        
-        // 3. Search Adapter (Separate List)
-        searchAdapter = AppAdapter(mutableListOf(), prefs, onCheckedChange)
-        searchResultsRecyclerView.layoutManager = LinearLayoutManager(this)
-        searchResultsRecyclerView.adapter = searchAdapter
     }
     
-    private fun setupSearch() {
-        searchView.setupWithSearchBar(searchBar)
-        searchView.editText.addTextChangedListener(object : android.text.TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                filterApps(s?.toString() ?: "")
-            }
-            override fun afterTextChanged(s: android.text.Editable?) {}
-        })
-        
-        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                if (searchView.isShowing) {
-                    searchView.hide()
-                } else {
-                    isEnabled = false
-                    onBackPressedDispatcher.onBackPressed()
-                }
-            }
-        })
-    }
-
-    private fun updateAppSelection(app: AppItem, isChecked: Boolean) {
-        val currentAllowed = prefs.getStringSet(KEY_ALLOWED_APPS, emptySet())?.toMutableSet() ?: mutableSetOf()
-        if (isChecked) currentAllowed.add(app.packageName) else currentAllowed.remove(app.packageName)
-        prefs.edit().putStringSet(KEY_ALLOWED_APPS, currentAllowed).apply()
-        
-        // Sync state in full list
-        fullAppList.find { it.packageName == app.packageName }?.isSelected = isChecked
-        
-        // Re-sort and update main list if we are not searching
-        if (!searchView.isShowing) {
-             val sorted = fullAppList.sortedWith(compareByDescending<AppItem> { it.isSelected }.thenBy { it.name })
-             appAdapter.updateList(sorted)
-        }
-    }
-
-    private fun filterApps(query: String) {
-        val filtered = if (query.isEmpty()) {
-            emptyList()
+    
+    private fun updateAppSelection(packageName: String, enabled: Boolean) {
+        val allowedApps = getAllowedApps().toMutableSet()
+        if (enabled) {
+            allowedApps.add(packageName)
         } else {
-            fullAppList.filter { it.name.contains(query, ignoreCase = true) }
+            allowedApps.remove(packageName)
         }
-        searchAdapter.updateList(filtered)
-    }
-
-    private fun loadApps() {
-        lifecycleScope.launch(Dispatchers.IO) {
-            val pm = packageManager
-            val packages = pm.getInstalledApplications(PackageManager.GET_META_DATA)
-            val allowedApps = prefs.getStringSet(KEY_ALLOWED_APPS, emptySet()) ?: emptySet()
-
-            val appList = packages
-                .filter { pm.getLaunchIntentForPackage(it.packageName) != null }
-                .map { appInfo ->
-                    AppItem(
-                        name = appInfo.loadLabel(pm).toString(),
-                        packageName = appInfo.packageName,
-                        icon = appInfo.loadIcon(pm),
-                        isSelected = allowedApps.contains(appInfo.packageName)
-                    )
-                }
-                // Sort: Selected first, then Alphabetical
-                .sortedWith(compareByDescending<AppItem> { it.isSelected }.thenBy { it.name })
-
-            withContext(Dispatchers.Main) {
-                fullAppList = appList
-                appAdapter.updateList(fullAppList)
-            }
-        }
-    }
-
-    private fun checkPermissions() {
-        if (Build.VERSION.SDK_INT >= 33) {
-            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
-            }
-        }
-        if (!isNotificationServiceEnabled()) {
-             startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"))
-        }
-    }
-
-    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        menuInflater.inflate(R.menu.main_menu, menu)
-        return true
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return when (item.itemId) {
-            R.id.action_logout -> {
-                performLogout()
-                true
-            }
-            else -> super.onOptionsItemSelected(item)
-        }
-    }
-
-    private fun performLogout() {
-        prefs.edit().putBoolean("is_authorized", false).putBoolean("onboarding_completed", false).apply()
-        DiscordGateway.shutdownDiscord()
-        Toast.makeText(this, "Logged out.", Toast.LENGTH_SHORT).show()
-        startActivity(Intent(this, OnboardingActivity::class.java))
-        finish()
+        saveAllowedApps(allowedApps)
     }
     
+    private fun updateActivityType(packageName: String, type: Int) {
+        prefs.edit().putInt("app_type_$packageName", type).apply()
+    }
+    
+    private fun getAllowedApps(): Set<String> {
+        return prefs.getStringSet(KEY_ALLOWED_APPS, emptySet()) ?: emptySet()
+    }
+    
+    private fun saveAllowedApps(apps: Set<String>) {
+        prefs.edit().putStringSet(KEY_ALLOWED_APPS, apps).apply()
+    }
+
     private fun isNotificationServiceEnabled(): Boolean {
         val pkgName = packageName
         val flat = android.provider.Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
         return flat != null && flat.contains(pkgName)
-    }
-    
-    override fun onDestroy() {
-        if (isReceiverRegistered) unregisterReceiver(statusReceiver)
-        super.onDestroy()
-    }
-
-    // --- Data & Adapters ---
-    
-    data class AppItem(val name: String, val packageName: String, val icon: Drawable, var isSelected: Boolean)
-
-    // Adapter for the Status Card (Header)
-    class HeaderAdapter(private var status: String, private var details: String) : RecyclerView.Adapter<HeaderAdapter.ViewHolder>() {
-        class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-            val tvStatus: TextView = view.findViewById(R.id.tvStatus)
-            val tvDetails: TextView = view.findViewById(R.id.tvDetails)
-        }
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            // Inflate a simple layout containing the card. 
-            // We need to create a layout file for this or inflate a view programmatically.
-            // For simplicity, we'll assume a layout 'item_header_status.xml' exists.
-            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_header_status, parent, false)
-            return ViewHolder(view)
-        }
-
-        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            holder.tvStatus.text = status
-            holder.tvDetails.text = details
-        }
-        
-        override fun getItemCount() = 1
-        
-        fun updateStatus(newStatus: String, newDetails: String) {
-            status = newStatus
-            details = newDetails
-            notifyItemChanged(0)
-        }
-    }
-
-    class AppAdapter(
-        private var apps: MutableList<AppItem>, 
-        private val prefs: android.content.SharedPreferences,
-        private val onCheckedChange: (AppItem, Boolean) -> Unit
-    ) : RecyclerView.Adapter<AppAdapter.ViewHolder>() {
-
-        class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-            val icon: ImageView = view.findViewById(R.id.app_icon)
-            val name: TextView = view.findViewById(R.id.app_name)
-            val packageName: TextView = view.findViewById(R.id.app_package)
-            val checkbox: com.google.android.material.checkbox.MaterialCheckBox = view.findViewById(R.id.app_checkbox)
-            val typeChipGroup: com.google.android.material.chip.ChipGroup = view.findViewById(R.id.type_chip_group)
-        }
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_app, parent, false)
-            return ViewHolder(view)
-        }
-
-        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            val app = apps[position]
-            holder.icon.setImageDrawable(app.icon)
-            holder.name.text = app.name
-            holder.packageName.text = app.packageName
-            
-            holder.checkbox.setOnCheckedChangeListener(null)
-            holder.checkbox.isChecked = app.isSelected
-            holder.checkbox.setOnCheckedChangeListener { _, isChecked ->
-                app.isSelected = isChecked
-                onCheckedChange(app, isChecked)
-            }
-
-            val savedType = prefs.getInt("app_type_${app.packageName}", 2) 
-            holder.typeChipGroup.setOnCheckedStateChangeListener(null)
-            when (savedType) {
-                0 -> holder.typeChipGroup.check(R.id.chip_playing)
-                2 -> holder.typeChipGroup.check(R.id.chip_listening)
-                3 -> holder.typeChipGroup.check(R.id.chip_watching)
-            }
-            holder.typeChipGroup.setOnCheckedStateChangeListener { _, checkedIds ->
-                val newType = when (checkedIds.firstOrNull()) {
-                    R.id.chip_playing -> 0
-                    R.id.chip_watching -> 3
-                    else -> 2 
-                }
-                prefs.edit().putInt("app_type_${app.packageName}", newType).apply()
-            }
-        }
-
-        override fun getItemCount() = apps.size
-        
-        fun updateList(newList: List<AppItem>) {
-            apps = newList.toMutableList()
-            notifyDataSetChanged()
-        }
     }
 }
