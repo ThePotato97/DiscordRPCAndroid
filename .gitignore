@@ -6,3 +6,4 @@ local.properties
 *.html
 .idea/
 *.iml
+.kotlin
