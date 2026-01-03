@@ -1,9 +1,34 @@
-local.properties
-**/.gradle/
+# Android
 **/build/
+**/bin/
+**/.gradle/
 **/.cxx/
-*.txt
-*.html
+**/.externalNativeBuild/
+captures/
+*.apk
+*.aar
+
+# Kotlin / Java
+.kotlin/
+*.class
+
+# IDE
 .idea/
 *.iml
-.kotlin
+*.iws
+.project
+.classpath
+.settings/
+
+# Local configuration
+local.properties
+
+# OS
+.DS_Store
+Thumbs.db
+
+# C++ / CMake
+**/CMakeCache.txt
+**/CMakeFiles/
+**/Makefile
+**/cmake_install.cmake
