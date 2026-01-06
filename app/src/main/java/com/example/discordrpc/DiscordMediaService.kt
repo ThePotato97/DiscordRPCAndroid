@@ -228,7 +228,7 @@ class DiscordMediaService : NotificationListenerService() {
         if (filteredControllers.isNullOrEmpty()) {
             broadcastAppsList(controllers) // Broadcast all found controllers so UI can show them
             unregisterCurrent()
-            DiscordGateway.updateRichPresence("Discord RPC", "Idle", "Waiting for media...", "", ActivityType.LISTENING.value, StatusDisplayTypes.STATE.value)
+            DiscordGateway.clearActivity()
             updateNotification("Discord RPC: Idle", "Waiting for media playback", null, 0, 0, "Waiting for media playback", "Discord RPC", ActivityType.LISTENING.value)
             return
         }
@@ -282,7 +282,7 @@ class DiscordMediaService : NotificationListenerService() {
             override fun onSessionDestroyed() {
                  Log.d("DiscordMediaService", "Session destroyed")
                  unregisterCurrent()
-                 DiscordGateway.updateRichPresence("Discord RPC", "Idle", "Waiting for media...", "", ActivityType.LISTENING.value, StatusDisplayTypes.STATE.value)
+                 DiscordGateway.clearActivity()
             }
         }
         controller.registerCallback(callback!!)
@@ -363,7 +363,12 @@ class DiscordMediaService : NotificationListenerService() {
         }
 
         val playbackState = controller.playbackState?.state
-        if (duration > 0 && playbackState == android.media.session.PlaybackState.STATE_PLAYING) {
+        val isPlaying = playbackState == android.media.session.PlaybackState.STATE_PLAYING
+
+        if (!isPlaying) {
+             Log.d("DiscordMediaService", "Playback not active ($playbackState), clearing activity")
+             DiscordGateway.clearActivity()
+        } else if (duration > 0) {
             val now = System.currentTimeMillis()
             val startTs = now - position
             val endTs = startTs + duration
@@ -376,7 +381,7 @@ class DiscordMediaService : NotificationListenerService() {
         
         val statusText = if (playbackState == android.media.session.PlaybackState.STATE_PLAYING) "Playing" else "Paused"
         
-        val isPlaying = playbackState == android.media.session.PlaybackState.STATE_PLAYING
+
         val s = if (isPlaying && duration > 0) (System.currentTimeMillis() - (controller.playbackState?.position ?: 0)) else 0L
         val e = if (isPlaying && duration > 0) s + duration else 0L
         

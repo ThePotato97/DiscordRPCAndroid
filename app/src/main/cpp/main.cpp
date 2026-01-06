@@ -79,7 +79,7 @@ void applyPendingActivity() {
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_example_discordrpc_DiscordGateway_updateRichPresence(JNIEnv* env, jobject thiz, jstring jAppName, jstring jdetails, jstring jstate, jstring jimageKey, jint jtype, jint jStatusDisplayType) {
+Java_com_thepotato_discordrpc_DiscordGateway_updateRichPresence(JNIEnv* env, jobject thiz, jstring jAppName, jstring jdetails, jstring jstate, jstring jimageKey, jint jtype, jint jStatusDisplayType) {
     const char* appName = env->GetStringUTFChars(jAppName, nullptr);
     const char* details = env->GetStringUTFChars(jdetails, nullptr);
     const char* state = env->GetStringUTFChars(jstate, nullptr);
@@ -98,7 +98,7 @@ Java_com_example_discordrpc_DiscordGateway_updateRichPresence(JNIEnv* env, jobje
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_example_discordrpc_DiscordGateway_updateRichPresenceWithTimestamps(JNIEnv* env, jobject thiz, jstring jAppName, jstring jdetails, jstring jstate, jstring jimageKey, jlong jstart, jlong jend, jint jtype, jint jStatusDisplayType) {
+Java_com_thepotato_discordrpc_DiscordGateway_updateRichPresenceWithTimestamps(JNIEnv* env, jobject thiz, jstring jAppName, jstring jdetails, jstring jstate, jstring jimageKey, jlong jstart, jlong jend, jint jtype, jint jStatusDisplayType) {
     const char* appName = env->GetStringUTFChars(jAppName, nullptr);
     const char* details = env->GetStringUTFChars(jdetails, nullptr);
     const char* state = env->GetStringUTFChars(jstate, nullptr);
@@ -129,7 +129,7 @@ static JavaVM* g_jvm = nullptr;
 static jobject g_gateway = nullptr;
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_example_discordrpc_DiscordGateway_initDiscord(JNIEnv* env, jobject thiz, jlong jclientId) {
+Java_com_thepotato_discordrpc_DiscordGateway_initDiscord(JNIEnv* env, jobject thiz, jlong jclientId) {
     env->GetJavaVM(&g_jvm);
     
     // Update Gateway Reference (Always)
@@ -244,7 +244,7 @@ Java_com_example_discordrpc_DiscordGateway_initDiscord(JNIEnv* env, jobject thiz
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_example_discordrpc_DiscordGateway_startAuthorization(JNIEnv* env, jobject thiz) {
+Java_com_thepotato_discordrpc_DiscordGateway_startAuthorization(JNIEnv* env, jobject thiz) {
     if (!g_client || !g_codeVerifier) {
         LOGE("Client not initialized");
         return;
@@ -264,7 +264,7 @@ Java_com_example_discordrpc_DiscordGateway_startAuthorization(JNIEnv* env, jobje
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_example_discordrpc_DiscordGateway_connect(JNIEnv* env, jobject thiz) {
+Java_com_thepotato_discordrpc_DiscordGateway_connect(JNIEnv* env, jobject thiz) {
     if (!g_client) {
         LOGE("Client not initialized! Cannot connect");
         return;
@@ -274,7 +274,7 @@ Java_com_example_discordrpc_DiscordGateway_connect(JNIEnv* env, jobject thiz) {
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_example_discordrpc_DiscordGateway_handleOAuthCallback(JNIEnv* env, jobject thiz, jstring jcode, jstring jredirectUri) {
+Java_com_thepotato_discordrpc_DiscordGateway_handleOAuthCallback(JNIEnv* env, jobject thiz, jstring jcode, jstring jredirectUri) {
     const char* code = env->GetStringUTFChars(jcode, nullptr);
     const char* redirectUri = env->GetStringUTFChars(jredirectUri, nullptr);
     
@@ -293,7 +293,7 @@ Java_com_example_discordrpc_DiscordGateway_handleOAuthCallback(JNIEnv* env, jobj
         redirectUriStr = redirectUriStr.substr(0, queryPos);
     }
     
-    jclass gatewayClass = env->FindClass("com/example/discordrpc/DiscordGateway");
+    jclass gatewayClass = env->FindClass("com/thepotato/discordrpc/DiscordGateway");
     jmethodID onTokenReceivedMethod = env->GetMethodID(gatewayClass, "onTokenReceived", "(Ljava/lang/String;Ljava/lang/String;)V");
 
     JavaVM* jvm;
@@ -337,7 +337,7 @@ Java_com_example_discordrpc_DiscordGateway_handleOAuthCallback(JNIEnv* env, jobj
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_example_discordrpc_DiscordGateway_restoreSession(JNIEnv* env, jobject thiz, jstring jAccessToken, jstring jRefreshToken) {
+Java_com_thepotato_discordrpc_DiscordGateway_restoreSession(JNIEnv* env, jobject thiz, jstring jAccessToken, jstring jRefreshToken) {
     const char* accessToken = env->GetStringUTFChars(jAccessToken, nullptr);
     const char* refreshToken = env->GetStringUTFChars(jRefreshToken, nullptr);
     
@@ -362,24 +362,18 @@ Java_com_example_discordrpc_DiscordGateway_restoreSession(JNIEnv* env, jobject t
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_example_discordrpc_DiscordGateway_clearActivity(JNIEnv* env, jobject thiz) {
+Java_com_thepotato_discordrpc_DiscordGateway_clearActivity(JNIEnv* env, jobject thiz) {
     std::lock_guard<std::mutex> lock(g_sdkMutex);
     if (!g_client || !g_connected) {
         LOGE("clearActivity: Client not ready or not connected");
         return;
     }
     LOGI("Clearing Rich Presence activity");
-    g_client->UpdateRichPresence(discordpp::Activity{}, [](discordpp::ClientResult result) {
-        if (!result.Successful()) {
-            LOGE("Clear activity failed: %s", result.Error().c_str());
-        } else {
-            LOGI("Clear activity successful");
-        }
-    });
+    g_client->ClearRichPresence();
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_example_discordrpc_DiscordGateway_shutdownDiscord(JNIEnv* env, jobject thiz) {
+Java_com_thepotato_discordrpc_DiscordGateway_shutdownDiscord(JNIEnv* env, jobject thiz) {
     std::lock_guard<std::mutex> lock(g_sdkMutex);
     LOGI("Shutting down Discord SDK");
     g_running = false;
@@ -391,7 +385,7 @@ Java_com_example_discordrpc_DiscordGateway_shutdownDiscord(JNIEnv* env, jobject 
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_example_discordrpc_DiscordGateway_requestUserUpdate(JNIEnv* env, jobject thiz) {
+Java_com_thepotato_discordrpc_DiscordGateway_requestUserUpdate(JNIEnv* env, jobject thiz) {
     if (!g_client || !g_connected) {
         LOGE("requestUserUpdate: Client not ready or not connected");
         return;
