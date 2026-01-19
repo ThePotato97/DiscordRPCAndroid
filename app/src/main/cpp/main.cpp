@@ -325,7 +325,6 @@ Java_com_thepotato_discordrpc_DiscordGateway_handleOAuthCallback(JNIEnv* env, jo
                 if (result.Successful()) {
                     LOGI("Token updated, connecting...");
                     g_client->Connect();
-                    g_connected = true;
                 } else {
                     LOGE("UpdateToken Error: %s", result.Error().c_str());
                 }
@@ -352,6 +351,9 @@ Java_com_thepotato_discordrpc_DiscordGateway_restoreSession(JNIEnv* env, jobject
     g_client->UpdateToken(discordpp::AuthorizationTokenType::Bearer, std::string(accessToken), [](discordpp::ClientResult result) {
          if (result.Successful()) {
              LOGI("Token restored");
+             // Connect after successfully updating token
+             LOGI("Connecting after token restore");
+             g_client->Connect();
          } else {
              LOGE("Failed to restore token: %s", result.Error().c_str());
          }
